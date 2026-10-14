@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sécurité - Tunisie Télécom Analytics</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #0055A4 0%, #003a73 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .navbar-brand {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .logout-btn {
+            background: #FFD200;
+            color: #0055A4;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: white;
+            height: calc(100vh - 80px);
+            position: fixed;
+            left: 0;
+            top: 80px;
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 20px 0;
+        }
+
+        .sidebar-menu li {
+            border-left: 4px solid transparent;
+        }
+
+        .sidebar-menu li a {
+            display: block;
+            padding: 15px 20px;
+            color: #666;
+            text-decoration: none;
+        }
+
+        .sidebar-menu li.active {
+            border-left-color: #FFD200;
+            background: #f9f9f9;
+        }
+
+        .sidebar-menu li.active a {
+            color: #0055A4;
+            font-weight: 600;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            margin-top: 80px;
+            padding: 40px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        .content-section {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #FFD200;
+        }
+
+        .alert-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .alert-table th {
+            background: #f9f9f9;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .alert-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .alert-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .severity-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .severity-high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .severity-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .severity-low {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .security-score {
+            font-size: 48px;
+            font-weight: bold;
+            color: #27AE60;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .back-link {
+            color: #0055A4;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-brand">📊 TT Analytics Dashboard</div>
+        <form method="POST" action="#" style="margin: 0;" onsubmit="return false;">
+            <button type="button" class="logout-btn" onclick="location.href='login.html'">Déconnexion</button>
+        </form>
+    </div>
+
+    <div class="sidebar">
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html">🏠 Dashboard</a></li>
+            <li><a href="performance.html">⚡ Performance</a></li>
+<li class="active"><a href="security.html">🔒 Sécurité</a></li>
+            <li><a href="details_db.html">💾 Base de Données</a></li>
+            <li><a href="configuration.html">⚙️ Configuration</a></li>
+            <li><a href="rapport.html">📋 Rapports</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <a href="dashboard.html" class="back-link">← Retour au Dashboard</a>
+        
+        <h1 class="page-title">🔒 Analyse de Sécurité</h1>
+
+        <div class="content-section">
+            <h2 class="section-title">Score de Sécurité Global</h2>
+            <div class="security-score">92/100 ✅</div>
+            <p style="text-align: center; color: #666;">Excellent - Continuer la surveillance</p>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">Événements de Sécurité (24 dernières heures)</h2>
+            <table class="alert-table">
+                <thead>
+                    <tr>
+                        <th>Heure</th>
+                        <th>Type d'Événement</th>
+                        <th>Sévérité</th>
+                        <th>Détails</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>14:32</td>
+                        <td>Tentative de connexion échouée</td>
+                        <td><span class="severity-badge severity-low">Faible</span></td>
+                        <td>IP: 192.168.1.100</td>
+                        <td>✅ Réglé</td>
+                    </tr>
+                    <tr>
+                        <td>11:45</td>
+                        <td>Accès non autorisé détecté</td>
+                        <td><span class="severity-badge severity-high">Haute</span></td>
+                        <td>Ressource: /admin/config</td>
+                        <td>⚠️ En cours</td>
+                    </tr>
+                    <tr>
+                        <td>08:20</td>
+                        <td>Configuration SSL modifiée</td>
+                        <td><span class="severity-badge severity-medium">Moyenne</span></td>
+                        <td>Certificat renouvelé</td>
+                        <td>✅ Vérifié</td>
+                    </tr>
+                    <tr>
+                        <td>06:15</td>
+                        <td>Alerte de firewall</td>
+                        <td><span class="severity-badge severity-low">Faible</span></td>
+                        <td>Port 8080 bloqué</td>
+                        <td>✅ Normal</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">Recommandations de Sécurité</h2>
+            <ul style="line-height: 2.2; color: #666;">
+                <li>✅ Authentification multi-facteur: Activée</li>
+                <li>✅ Chiffrement HTTPS: Actif</li>
+                <li>⚠️ Mise à jour des patches de sécurité: Prévu dimanche</li>
+                <li>💡 Audit de sécurité complet: Prévu ce trimestre</li>
+                <li>🔒 Sauvegardes chiffrées: Confirmées</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

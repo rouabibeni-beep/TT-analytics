@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Analytics - Tunisie Télécom</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #0055A4 0%, #003a73 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .navbar-brand {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .navbar-user {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-info .username {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .logout-btn {
+            background: #FFD200;
+            color: #0055A4;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.3s;
+        }
+
+        .logout-btn:hover {
+            opacity: 0.9;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: white;
+            height: calc(100vh - 80px);
+            position: fixed;
+            left: 0;
+            top: 80px;
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 20px 0;
+        }
+
+        .sidebar-menu li {
+            border-left: 4px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .sidebar-menu li a {
+            display: block;
+            padding: 15px 20px;
+            color: #666;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .sidebar-menu li.active {
+            border-left-color: #FFD200;
+            background: #f9f9f9;
+        }
+
+        .sidebar-menu li.active a {
+            color: #0055A4;
+            font-weight: 600;
+        }
+
+        .sidebar-menu li a:hover {
+            color: #0055A4;
+            padding-left: 25px;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            margin-top: 80px;
+            padding: 40px;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .page-subtitle {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .kpi-card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        .kpi-label {
+            font-size: 13px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0055A4;
+            margin-bottom: 5px;
+        }
+
+        .kpi-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .status-good {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-critical {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .content-section {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #FFD200;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .anomalies-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .anomalies-table th {
+            background: #f9f9f9;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .anomalies-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .anomalies-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .severity-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .severity-critique {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .severity-anormal {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .severity-suspect {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #0055A4;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #003a73;
+        }
+
+        .btn-secondary {
+            background: #FFD200;
+            color: #0055A4;
+        }
+
+        .btn-secondary:hover {
+            background: #e6b800;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0055A4;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 0;
+                left: -250px;
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <div class="navbar">
+        <div class="navbar-brand">📊 TT Analytics Dashboard</div>
+        <div class="navbar-user">
+            <div class="user-info">
+                <div class="username">👤 Invité (aperçu fichier)</div>
+            </div>
+            <button type="button" class="logout-btn" onclick="location.href='login.html'">Déconnexion</button>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <ul class="sidebar-menu">
+            <li class="active"><a href="dashboard.html">🏠 Dashboard</a></li>
+            <li><a href="performance.html">⚡ Performance</a></li>
+            <li><a href="security.html">🔒 Sécurité</a></li>
+            <li><a href="details_db.html">💾 Base de Données</a></li>
+            <li><a href="configuration.html">⚙️ Configuration</a></li>
+            <li><a href="rapport.html">📋 Rapports</a></li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="page-header">
+            <h1 class="page-title">Dashboard Analytics</h1>
+            <p class="page-subtitle">Suivi en temps réel des anomalies et performances</p>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Total Anomalies</div>
+                <div class="kpi-value" id="total-anomalies">-</div>
+                <span class="kpi-status status-warning">⚠️ À surveiller</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Critiques</div>
+                <div class="kpi-value" id="critiques" style="color: #E74C3C;">-</div>
+                <span class="kpi-status status-critical">🔴 Critique</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Uptime</div>
+                <div class="kpi-value" id="uptime">-</div>
+                <span class="kpi-status status-good">✅ Excellent</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">Erreurs (24h)</div>
+                <div class="kpi-value" id="errors-24h">-</div>
+                <span class="kpi-status status-warning">⚠️ Surveiller</span>
+            </div>
+        </div>
+
+        <!-- Timeline Chart -->
+        <div class="content-section">
+            <h2 class="section-title">📈 Timeline Anomalies (24h)</h2>
+            <div class="chart-container">
+                <canvas id="timeline-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="content-section">
+            <h2 class="section-title">🔧 Métriques Système</h2>
+            <div class="kpi-grid">
+                <div>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">CPU</label>
+                    <div style="width: 100%; background: #e0e0e0; height: 10px; border-radius: 5px; overflow: hidden;">
+                        <div id="cpu-bar" style="background: #0055A4; height: 100%; width: 0%;"></div>
+                    </div>
+                    <span id="cpu-value" style="font-size: 12px; color: #999;">-</span>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">Mémoire</label>
+                    <div style="width: 100%; background: #e0e0e0; height: 10px; border-radius: 5px; overflow: hidden;">
+                        <div id="memory-bar" style="background: #FFD200; height: 100%; width: 0%;"></div>
+                    </div>
+                    <span id="memory-value" style="font-size: 12px; color: #999;">-</span>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">Disque</label>
+                    <div style="width: 100%; background: #e0e0e0; height: 10px; border-radius: 5px; overflow: hidden;">
+                        <div id="disk-bar" style="background: #27AE60; height: 100%; width: 0%;"></div>
+                    </div>
+                    <span id="disk-value" style="font-size: 12px; color: #999;">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Anomalies Table -->
+        <div class="content-section">
+            <h2 class="section-title">🚨 Anomalies Détectées</h2>
+            <div id="anomalies-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Chargement des données...
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="refreshData()">🔄 Actualiser</button>
+            <button type="button" class="btn btn-secondary" id="btn-pdf">📥 Télécharger Rapport PDF</button>
+        </div>
+    </div>
+
+    <script>
+        let timelineChart = null;
+
+        const STATIC_KPIS = { total_anomalies: 92, critiques: 8, uptime: '99.7%', errors_24h: 156 };
+        const STATIC_PERF = { cpu: 65, memory: 72, disk: 58 };
+        const STATIC_ANOMALIES = [
+            { time: '08:15', severity: 'CRITIQUE', type: 'Stack Trace Error', impact: 'Haute', count: 24 },
+            { time: '10:30', severity: 'ANORMAL', type: 'Security Event', impact: 'Moyenne', count: 18 },
+            { time: '12:45', severity: 'SUSPECT', type: 'Timeout', impact: 'Basse', count: 7 },
+            { time: '14:20', severity: 'CRITIQUE', type: 'Connection Pool', impact: 'Haute', count: 31 },
+            { time: '16:00', severity: 'ANORMAL', type: 'Memory Leak', impact: 'Moyenne', count: 12 },
+        ];
+
+        function buildStaticTimeline() {
+            const out = [];
+            for (let i = 0; i < 48; i++) {
+                const h = String(Math.floor(i / 2)).padStart(2, '0');
+                const m = String((i % 2) * 30).padStart(2, '0');
+                out.push({
+                    time: h + ':' + m,
+                    score: 30 + (i * 13) % 55,
+                    errors: i % 12
+                });
+            }
+            return out;
+        }
+
+        function applyKpisPerf(kpis, perf) {
+            document.getElementById('total-anomalies').textContent = kpis.total_anomalies;
+            document.getElementById('critiques').textContent = kpis.critiques;
+            document.getElementById('uptime').textContent = kpis.uptime;
+            document.getElementById('errors-24h').textContent = kpis.errors_24h;
+            document.getElementById('cpu-bar').style.width = perf.cpu + '%';
+            document.getElementById('cpu-value').textContent = perf.cpu + '%';
+            document.getElementById('memory-bar').style.width = perf.memory + '%';
+            document.getElementById('memory-value').textContent = perf.memory + '%';
+            document.getElementById('disk-bar').style.width = perf.disk + '%';
+            document.getElementById('disk-value').textContent = perf.disk + '%';
+        }
+
+        function loadStaticDemo() {
+            applyKpisPerf(STATIC_KPIS, STATIC_PERF);
+            displayAnomalies(STATIC_ANOMALIES);
+            displayTimeline(buildStaticTimeline());
+        }
+
+        async function loadData() {
+            if (location.protocol === 'file:') {
+                loadStaticDemo();
+                return;
+            }
+            try {
+                const kpisRes = await fetch('/api/kpis', { credentials: 'same-origin' });
+                if (!kpisRes.ok) throw new Error('kpis');
+                const kpis = await kpisRes.json();
+
+                const perfRes = await fetch('/api/performance', { credentials: 'same-origin' });
+                const perf = await perfRes.json();
+
+                applyKpisPerf(kpis, perf);
+
+                const anomRes = await fetch('/api/anomalies', { credentials: 'same-origin' });
+                const anomalies = await anomRes.json();
+                displayAnomalies(anomalies);
+
+                const timelineRes = await fetch('/api/timeline', { credentials: 'same-origin' });
+                const timeline = await timelineRes.json();
+                displayTimeline(timeline);
+            } catch (error) {
+                console.warn('API indisponible, données démo :', error);
+                loadStaticDemo();
+            }
+        }
+
+        document.getElementById('btn-pdf').addEventListener('click', function () {
+            if (location.protocol === 'file:') {
+                alert('Pour générer le PDF : lancez le serveur avec « python app.py », puis ouvrez http://127.0.0.1:5000 et connectez-vous.');
+                return;
+            }
+            window.location.href = '/export/pdf-rapport';
+        });
+
+        function displayAnomalies(anomalies) {
+            let html = '<table class="anomalies-table">';
+            html += '<thead><tr>';
+            html += '<th>Heure</th><th>Type</th><th>Sévérité</th><th>Impact</th><th>Nombre</th>';
+            html += '</tr></thead><tbody>';
+
+            anomalies.forEach(anom => {
+                const severityClass = `severity-${anom.severity.toLowerCase()}`;
+                html += `<tr>
+                    <td><strong>${anom.time}</strong></td>
+                    <td>${anom.type}</td>
+                    <td><span class="severity-badge ${severityClass}">${anom.severity}</span></td>
+                    <td>${anom.impact}</td>
+                    <td><strong>${anom.count}</strong></td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('anomalies-container').innerHTML = html;
+        }
+
+        function displayTimeline(timeline) {
+            const labels = timeline.map(d => d.time);
+            const scores = timeline.map(d => d.score);
+            const errors = timeline.map(d => d.errors);
+
+            const ctx = document.getElementById('timeline-chart').getContext('2d');
+            
+            if (timelineChart) {
+                timelineChart.destroy();
+            }
+
+            timelineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Score Santé',
+                            data: scores,
+                            borderColor: '#0055A4',
+                            backgroundColor: 'rgba(0, 85, 164, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Erreurs',
+                            data: errors,
+                            borderColor: '#E74C3C',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        function refreshData() {
+            loadData();
+        }
+
+        // Charger les données au démarrage
+        window.onload = loadData;
+    </script>
+</body>
+</html>

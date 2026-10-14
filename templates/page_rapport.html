@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% set active_page = 'rapport' %}
+{% block title %}Rapport analytique PDF{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">📋 Rapport analytique (PDF)</h1>
+    <p class="page-subtitle">
+        Rapport exécutif généré automatiquement : résumé KPI, tableau des anomalies détectées
+        et recommandations pour l'équipe d'exploitation.
+    </p>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Télécharger le rapport</h2>
+    <div class="chart-legend-box">
+        Le PDF inclut : page de garde professionnelle (tons pastels), sommaire, résumé exécutif,
+        anomalies avec codes couleur, recommandations numérotées, 4 graphiques XAI avec explications,
+        tableaux SHAP et feuille de route — en-tête et pied de page sur chaque page.
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:16px">
+        <a href="{{ url_for('export_pdf_rapport') }}" class="btn btn-primary" style="font-size:16px;padding:14px 28px">
+            📥 Télécharger le rapport PDF
+        </a>
+        <button type="button" class="btn btn-secondary" onclick="alert('Le rapport sera régénéré avec les dernières données au prochain téléchargement.')">
+            🔄 Régénérer (prochain téléchargement)
+        </button>
+    </div>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Contenu du rapport PDF</h2>
+    <table class="data-table">
+        <thead><tr><th>Section</th><th>Description</th></tr></thead>
+        <tbody>
+            <tr><td><strong>Résumé exécutif</strong></td><td>Total anomalies, critiques, uptime, erreurs 24h</td></tr>
+            <tr><td><strong>Anomalies détectées</strong></td><td>Tableau horaire avec type, sévérité, impact</td></tr>
+            <tr><td><strong>Recommandations</strong></td><td>Sécurité, performance, monitoring, infrastructure</td></tr>
+            <tr><td><strong>Interprétation XAI</strong></td><td>4 graphiques (impact, scénarios, SHAP, feuille de route) + tableaux d'interprétation</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Rapports archivés</h2>
+
+    <div class="report-card">
+        <div>
+            <h3 style="color:#333;margin-bottom:6px">Rapport Anomalies — {{ report_date }}</h3>
+            <p style="color:#999;font-size:14px">PDF analytique complet — prêt</p>
+        </div>
+        <a href="{{ url_for('export_pdf_rapport') }}" class="btn btn-primary">📥 PDF</a>
+    </div>
+
+    <div class="report-card">
+        <div>
+            <h3 style="color:#333;margin-bottom:6px">Rapport Performance — Semaine en cours</h3>
+            <p style="color:#999;font-size:14px">Disponible via export personnalisé (à venir)</p>
+        </div>
+        <span class="btn btn-secondary" style="opacity:0.6;cursor:default">Bientôt</span>
+    </div>
+
+    <div class="report-card">
+        <div>
+            <h3 style="color:#333;margin-bottom:6px">Rapport Sécurité &amp; XAI</h3>
+            <p style="color:#999;font-size:14px">Inclut méthodologie SHAP + Isolation Forest</p>
+        </div>
+        <a href="{{ url_for('page_security') }}" class="btn btn-secondary">📖 Voir méthodologie</a>
+    </div>
+
+    <div class="report-card">
+        <div>
+            <h3 style="color:#333;margin-bottom:6px">Interprétation XAI &amp; feuille de route</h3>
+            <p style="color:#999;font-size:14px">Lecture des alertes SHAP et évolutions prévues du pipeline</p>
+        </div>
+        <a href="{{ url_for('page_interpretation_xai') }}" class="btn btn-secondary">🧠 Voir interprétation</a>
+    </div>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Aperçu des indicateurs du dernier rapport</h2>
+    <div class="kpi-grid">
+        <div class="kpi-card critical"><div class="kpi-label">Anomalies critiques</div><div class="kpi-value">{{ preview.critiques }}</div></div>
+        <div class="kpi-card warning"><div class="kpi-label">Total anomalies</div><div class="kpi-value">{{ preview.total_anomalies }}</div></div>
+        <div class="kpi-card success"><div class="kpi-label">Uptime</div><div class="kpi-value">{{ preview.uptime }}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Erreurs 24h</div><div class="kpi-value">{{ preview.errors_24h }}</div></div>
+    </div>
+</div>
+{% endblock %}

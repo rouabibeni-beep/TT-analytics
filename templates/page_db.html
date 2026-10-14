@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% set active_page = 'db' %}
+{% block title %}Base de données & Anomalies{% endblock %}
+
+{% block extra_head %}
+<style>
+    .db-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .db-info-card {
+        background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #0055A4;
+    }
+    .db-info-card .label { font-size: 11px; color: #888; text-transform: uppercase; }
+    .db-info-card .value { font-size: 20px; font-weight: bold; color: #0055A4; margin-top: 6px; }
+    .status-online {
+        display: inline-block; padding: 4px 10px; border-radius: 4px;
+        background: #d4edda; color: #155724; font-size: 11px; font-weight: 700;
+    }
+    .charts-row-duo { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+    .chart-container-anomaly-detail { position: relative; height: 280px; }
+    .heatmap-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; font-size: 12px; color: #555; }
+    .heatmap-scroll { overflow-x: auto; }
+    .heatmap-grid {
+        display: grid; grid-template-columns: 42px repeat(12, minmax(26px, 1fr));
+        gap: 3px; min-width: 500px;
+    }
+    .heatmap-slot-head { font-size: 10px; color: #666; text-align: center; font-weight: 600; }
+    .heatmap-hour-label { font-size: 11px; font-weight: 700; color: #0055A4; text-align: right; padding-right: 6px; }
+    .heatmap-cell {
+        min-height: 22px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.08);
+        cursor: pointer; transition: transform 0.12s;
+    }
+    .heatmap-cell:hover { transform: scale(1.1); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .detail-strip {
+        margin-top: 12px; padding: 12px 16px; background: #f8fafc;
+        border-left: 4px solid #FFD200; border-radius: 6px; font-size: 13px;
+    }
+    .error-banner {
+        display: none; background: #fde8e8; border-left: 4px solid #E74C3C;
+        color: #721c24; padding: 14px; border-radius: 6px; margin-bottom: 16px;
+    }
+    .error-banner.visible { display: block; }
+    code { background: #f0f4f8; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="error-banner" class="error-banner" role="alert"></div>
+
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div>
+        <h1 class="page-title">💾 Base de données &amp; anomalies</h1>
+        <p class="page-subtitle">Infrastructure, KPIs, graphiques et anomalies — fenêtres de 5 minutes (288/jour).</p>
+    </div>
+    <span style="font-size:13px;color:#27AE60;font-weight:600">● {{ updated_at }}</span>
+</div>
+
+<!-- Infrastructure -->
+<div class="content-section">
+    <h2 class="section-title">🗄️ Infrastructure</h2>
+    <div class="db-info-grid">
+        <div class="db-info-card"><div class="label">Taille</div><div class="value">{{ db_meta.general.total_size }}</div></div>
+        <div class="db-info-card"><div class="label">Tables</div><div class="value">{{ db_meta.general.tables }}</div></div>
+        <div class="db-info-card"><div class="label">Enregistrements</div><div class="value">{{ db_meta.general.records }}</div></div>
+        <div class="db-info-card"><div class="label">Logs parsés</div><div class="value">{{ db_meta.general.logs_parsed }}</div></div>
+        <div class="db-info-card"><div class="label">Fenêtres</div><div class="value">{{ db_meta.general.features_rows }}</div></div>
+        <div class="db-info-card"><div class="label">Sauvegarde</div><div class="value" style="font-size:15px">{{ db_meta.general.last_backup }}</div></div>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr><th>Instance</th><th>Type</th><th>Rôle</th><th>Statut</th><th>Version</th><th>CPU</th><th>RAM</th></tr>
+        </thead>
+        <tbody>
+            {% for inst in db_meta.instances %}
+            <tr>
+                <td><strong>{{ inst.name }}</strong></td>
+                <td>{{ inst.type }}</td>
+                <td>{{ inst.role }}</td>
+                <td><span class="status-online">En ligne</span></td>
+                <td>{{ inst.version }}</td>
+                <td>{{ inst.cpu }}</td>
+                <td>{{ inst.memory }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- KPIs -->
+<div class="content-section">
+    <h2 class="section-title">📊 KPIs anomalies (24h)</h2>
+    <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">Fenêtres</div><div class="kpi-value">{{ kpis.fenetres_total }}</div></div>
+        <div class="kpi-card critical"><div class="kpi-label">Critiques</div><div class="kpi-value" style="color:#E74C3C">{{ kpis.critiques }}</div></div>
+        <div class="kpi-card warning"><div class="kpi-label">Anormales</div><div class="kpi-value" style="color:#F39C12">{{ kpis.anormales }}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Suspectes</div><div class="kpi-value" style="color:#3498DB">{{ kpis.suspects }}</div></div>
+        <div class="kpi-card success"><div class="kpi-label">% Normal</div><div class="kpi-value">{{ kpis.pct_normal }}%</div></div>
+        <div class="kpi-card"><div class="kpi-label">Erreurs</div><div class="kpi-value">{{ kpis.erreurs_total }}</div><div class="kpi-hint">Moy. {{ kpis.erreurs_moy_fenetre }}/fenêtre</div></div>
+        <div class="kpi-card warning"><div class="kpi-label">Sécurité</div><div class="kpi-value">{{ kpis.evenements_securite }}</div></div>
+        <div class="kpi-card success"><div class="kpi-label">Uptime</div><div class="kpi-value">{{ kpis.uptime }}</div></div>
+    </div>
+</div>
+
+<!-- Timeline -->
+<div class="content-section">
+    <h2 class="section-title">📈 Timeline (scores &amp; erreurs)</h2>
+    <div class="chart-legend-box">Bleu = score · Rouge = erreurs — données chargées au démarrage.</div>
+    <div class="chart-container"><canvas id="chart-timeline"></canvas></div>
+</div>
+
+<!-- Graphiques côte à côte -->
+<div class="charts-row-duo">
+    <div class="content-section" style="margin:0">
+        <h2 class="section-title">🍩 Répartition sévérité</h2>
+        <div class="chart-container-sm"><canvas id="chart-distribution"></canvas></div>
+    </div>
+    <div class="content-section" style="margin:0">
+        <h2 class="section-title">🔍 Types d'anomalies</h2>
+        <div class="chart-container-anomaly-detail"><canvas id="chart-anomaly-detail"></canvas></div>
+    </div>
+</div>
+
+<!-- Heatmap serveur (fonctionne sans JS) -->
+<div class="content-section">
+    <h2 class="section-title">🔥 Heatmap 24h × 5 min</h2>
+    <div class="heatmap-legend">
+        <span>🟢 Normal &lt;45</span>
+        <span>🔵 Suspect 45–64</span>
+        <span>🟠 Anormal 65–79</span>
+        <span>🔴 Critique ≥80</span>
+    </div>
+    <div class="heatmap-scroll">
+        <div class="heatmap-grid" id="heatmap-grid">
+            <div></div>
+            {% for slot in heatmap_matrix.slot_labels %}
+            <div class="heatmap-slot-head">{{ slot }}</div>
+            {% endfor %}
+            {% for row in heatmap_matrix.matrix %}
+            <div class="heatmap-hour-label">{{ heatmap_matrix.hours[loop.index0] }}</div>
+            {% for cell in row %}
+            <div class="heatmap-cell"
+                 style="background:{{ cell.score | score_color }}"
+                 title="{{ cell.time }} — score {{ cell.score }} ({{ cell.severity }}) — {{ cell.errors }} erreur(s)"
+                 data-time="{{ cell.time }}"
+                 data-score="{{ cell.score }}"
+                 data-severity="{{ cell.severity }}"
+                 data-errors="{{ cell.errors }}"></div>
+            {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+    <div class="detail-strip" id="cell-detail">Cliquez une case colorée pour le détail de la fenêtre.</div>
+</div>
+
+<!-- Tables -->
+<div class="charts-row-duo">
+    <div class="content-section" style="margin:0">
+        <h2 class="section-title">📁 Tables analytics</h2>
+        <table class="data-table">
+            <thead><tr><th>Table</th><th>Lignes</th><th>Description</th></tr></thead>
+            <tbody>
+                {% for t in db_meta.tables_analytics %}
+                <tr><td><code>{{ t.name }}</code></td><td><strong>{{ t.rows }}</strong></td><td>{{ t.desc }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="content-section" style="margin:0">
+        <h2 class="section-title">🐢 Requêtes lentes</h2>
+        <table class="data-table">
+            <thead><tr><th>Requête</th><th>ms</th><th>Exéc.</th><th>Action</th></tr></thead>
+            <tbody>
+                {% for q in db_meta.slow_queries %}
+                <tr>
+                    <td><code>{{ q.query }}</code></td>
+                    <td><strong>{{ q.ms }}</strong></td>
+                    <td>{{ q.runs }}</td>
+                    <td style="font-size:12px">{{ q.hint }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Anomalies (serveur) -->
+<div class="content-section">
+    <h2 class="section-title">🚨 Anomalies prioritaires</h2>
+    {% if anomalies %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Heure</th><th>Type</th><th>Code</th><th>Sévérité</th>
+                <th>Score</th><th>Erreurs</th><th>Impact</th><th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in anomalies %}
+            <tr>
+                <td><strong>{{ a.time }}</strong></td>
+                <td>{{ a.type }}</td>
+                <td><code>{{ a.code or '—' }}</code></td>
+                <td><span class="severity-badge {{ a.severity | severity_css }}">{{ a.severity }}</span></td>
+                <td><strong>{{ '%.1f'|format(a.score) if a.score is not none else '—' }}</strong></td>
+                <td>{{ a.count }}</td>
+                <td>{{ a.impact or '—' }}</td>
+                <td style="font-size:12px">{{ a.action or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#999;padding:16px">Aucune anomalie.</p>
+    {% endif %}
+</div>
+
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+    <button type="button" class="btn btn-primary" id="btn-refresh">🔄 Actualiser</button>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">🏠 Dashboard</a>
+    <a href="{{ url_for('export_pdf_rapport') }}" class="btn btn-secondary">📥 PDF</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const TIMELINE = {{ timeline_sample | tojson }};
+    const DISTRIBUTION = {{ distribution | tojson }};
+    const ANOMALY_DETAILS = {{ anomaly_details | tojson }};
+    const BUNDLE_URL = {{ url_for('get_dashboard_bundle') | tojson }};
+    const FETCH_OPTS = { credentials: 'same-origin' };
+    let charts = {};
+
+    function runWhenReady(fn) {
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+        else fn();
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('error-banner');
+        el.textContent = msg;
+        el.classList.add('visible');
+    }
+
+    function severityBarColor(sev) {
+        return { CRITIQUE: '#E74C3C', ANORMAL: '#F39C12', SUSPECT: '#3498DB', NORMAL: '#27AE60' }[sev] || '#95A5A6';
+    }
+
+    function initHeatmapClicks() {
+        document.querySelectorAll('.heatmap-cell').forEach(function(cell) {
+            cell.addEventListener('click', function() {
+                document.querySelectorAll('.heatmap-cell').forEach(function(c) { c.style.outline = ''; });
+                cell.style.outline = '3px solid #0055A4';
+                var strip = document.getElementById('cell-detail');
+                strip.innerHTML = '<strong>' + cell.dataset.time + '</strong> — Score <strong>' + cell.dataset.score
+                    + '</strong> · ' + cell.dataset.severity + ' · ' + cell.dataset.errors + ' erreur(s)';
+            });
+        });
+    }
+
+    function renderTimeline(data) {
+        if (!window.Chart || !data || !data.length) return;
+        var canvas = document.getElementById('chart-timeline');
+        if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+        if (charts.timeline) charts.timeline.destroy();
+        charts.timeline = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(function(d) { return d.time; }),
+                datasets: [
+                    {
+                        label: 'Score', data: data.map(function(d) { return d.score; }),
+                        borderColor: '#0055A4', backgroundColor: 'rgba(0,85,164,0.08)',
+                        tension: 0.3, fill: true, yAxisID: 'y'
+                    },
+                    {
+                        label: 'Erreurs', data: data.map(function(d) { return d.errors; }),
+                        borderColor: '#E74C3C', backgroundColor: 'rgba(231,76,60,0.1)',
+                        tension: 0.3, fill: true, yAxisID: 'y1', pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    y: { min: 0, max: 100, title: { display: true, text: 'Score' } },
+                    y1: { position: 'right', min: 0, grid: { drawOnChartArea: false } }
+                }
+            }
+        });
+    }
+
+    function renderDistribution(dist) {
+        if (!window.Chart || !dist) return;
+        var ctx = document.getElementById('chart-distribution').getContext('2d');
+        if (charts.dist) charts.dist.destroy();
+        charts.dist = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: dist.labels,
+                datasets: [{ data: dist.values, backgroundColor: ['#27AE60', '#3498DB', '#F39C12', '#E74C3C'], borderWidth: 2 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(c) {
+                                return c.label + ': ' + c.raw + ' (' + dist.percent[c.dataIndex] + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderAnomalyDetail(details) {
+        if (!window.Chart) return;
+        var canvas = document.getElementById('chart-anomaly-detail');
+        if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+        if (charts.anom) charts.anom.destroy();
+        if (!details || !details.labels || !details.labels.length) return;
+        charts.anom = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: details.labels,
+                datasets: [{
+                    label: 'Erreurs',
+                    data: details.errors,
+                    backgroundColor: details.severities.map(severityBarColor),
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true } }
+            }
+        });
+    }
+
+    function initCharts() {
+        try {
+            renderTimeline(TIMELINE);
+            renderDistribution(DISTRIBUTION);
+            renderAnomalyDetail(ANOMALY_DETAILS);
+            initHeatmapClicks();
+        } catch (e) {
+            console.error(e);
+            showError('Erreur graphiques : ' + e.message);
+        }
+    }
+
+    function refreshPage() {
+        window.location.reload();
+    }
+
+    runWhenReady(function() {
+        if (!window.Chart) {
+            showError('Chart.js non chargé (connexion Internet requise pour le CDN). Le reste de la page reste visible.');
+            initHeatmapClicks();
+            return;
+        }
+        initCharts();
+        var btn = document.getElementById('btn-refresh');
+        if (btn) btn.addEventListener('click', refreshPage);
+    });
+})();
+</script>
+{% endblock %}

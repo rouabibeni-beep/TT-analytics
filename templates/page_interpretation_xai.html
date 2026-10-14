@@ -1,0 +1,692 @@
+{% extends "base.html" %}
+{% set active_page = 'interpretation' %}
+{% block title %}Interprétation XAI{% endblock %}
+
+{% block extra_head %}
+<style>
+    .perspective-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+    }
+    .perspective-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #eef4fb 100%);
+        border-radius: 10px;
+        padding: 22px;
+        border-left: 4px solid #0055A4;
+    }
+    .perspective-card h3 { color: #0055A4; font-size: 15px; margin-bottom: 10px; }
+    .perspective-card p { color: #555; font-size: 14px; line-height: 1.65; }
+    .perspective-metric {
+        display: inline-block;
+        margin-top: 12px;
+        padding: 5px 12px;
+        background: #0055A4;
+        color: white;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .scenario-card {
+        border: 1px solid #e8ecf0;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 14px;
+        background: white;
+    }
+    .scenario-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .scenario-time {
+        font-weight: 700;
+        color: #0055A4;
+        font-size: 18px;
+    }
+    .feature-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+    .feature-tag {
+        background: #e8f0fa;
+        color: #0055A4;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-family: Consolas, monospace;
+    }
+    .roadmap-block { margin-bottom: 20px; }
+    .roadmap-block h3 {
+        color: #0055A4;
+        font-size: 16px;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #FFD200;
+    }
+    .roadmap-block ul { margin-left: 20px; color: #555; line-height: 1.9; font-size: 14px; }
+    .interactive-chart-card {
+        background: #fafbfc;
+        border: 1px solid #e8ecf0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        transition: box-shadow 0.25s, border-color 0.25s;
+    }
+    .interactive-chart-card:hover { box-shadow: 0 6px 20px rgba(0, 85, 164, 0.08); }
+    .interactive-chart-card.is-active {
+        border-color: #0055A4;
+        box-shadow: 0 8px 24px rgba(0, 85, 164, 0.12);
+    }
+    .chart-card-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0055A4;
+        margin-bottom: 8px;
+    }
+    .chart-hint {
+        font-size: 12px;
+        color: #888;
+        margin-bottom: 14px;
+        padding: 8px 12px;
+        background: #fff8e1;
+        border-left: 3px solid #FFD200;
+        border-radius: 4px;
+    }
+    .chart-explanation {
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px dashed #dde3ea;
+    }
+    .chart-explanation h4 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #0055A4;
+        margin-bottom: 10px;
+    }
+    .chart-explanation p {
+        color: #555;
+        font-size: 14px;
+        line-height: 1.75;
+        margin-bottom: 12px;
+    }
+    .chart-explanation ul {
+        margin-left: 18px;
+        color: #666;
+        font-size: 13px;
+        line-height: 1.85;
+    }
+    .chart-detail-panel {
+        margin-top: 14px;
+        padding: 14px 16px;
+        background: linear-gradient(135deg, #e8f0fa 0%, #f0f6fc 100%);
+        border-radius: 8px;
+        border-left: 4px solid #0055A4;
+        min-height: 52px;
+        transition: background 0.2s;
+    }
+    .chart-detail-panel.has-selection {
+        background: linear-gradient(135deg, #dce9f7 0%, #e8f2fb 100%);
+    }
+    .chart-detail-panel .detail-placeholder {
+        color: #888;
+        font-size: 13px;
+        font-style: italic;
+        margin: 0;
+    }
+    .chart-detail-panel .detail-title {
+        font-weight: 700;
+        color: #0055A4;
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+    .chart-detail-panel .detail-body {
+        color: #444;
+        font-size: 13px;
+        line-height: 1.7;
+        margin: 0;
+    }
+    .chart-detail-panel .detail-meta {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #666;
+    }
+    .chart-interactive-wrap {
+        position: relative;
+        cursor: pointer;
+    }
+    .chart-interactive-wrap canvas { cursor: crosshair; }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .interactive-chart-card {
+        animation: fadeInUp 0.55s ease-out both;
+    }
+    #card-benefits { animation-delay: 0.05s; }
+    #card-scenarios { animation-delay: 0.15s; }
+    #card-features { animation-delay: 0.25s; }
+    #card-roadmap { animation-delay: 0.35s; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">🧠 Interprétation XAI</h1>
+    <p class="page-subtitle">
+        Guide pour l'analyste : comment lire les explications SHAP, comprendre les alertes
+        et prioriser les actions à partir des contributions des features.
+    </p>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Apports de l'explicabilité (XAI)</h2>
+    <div class="perspective-grid">
+        {% for b in benefits %}
+        <div class="perspective-card">
+            <h3>{{ b.title }}</h3>
+            <p>{{ b.detail }}</p>
+            <span class="perspective-metric">{{ b.metric }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">📊 Graphiques interactifs — synthèse visuelle XAI</h2>
+    <div class="chart-legend-box">
+        <strong>Mode interactif :</strong> survolez les barres et segments pour les valeurs détaillées,
+        cliquez pour afficher l'explication complète dans le panneau sous chaque graphique.
+        Les légendes sont cliquables pour masquer / afficher une série de données.
+    </div>
+
+    <div class="interactive-chart-card" id="card-benefits" data-chart-id="benefits">
+        <div class="chart-card-title">1. Impact avant / après XAI</div>
+        <p class="chart-hint">🖱️ Survolez une barre · Cliquez pour voir le détail avant/après et le gain</p>
+        <div class="chart-interactive-wrap">
+            <div class="chart-container-sm"><canvas id="chart-benefits"></canvas></div>
+        </div>
+        <div class="chart-explanation" id="explain-benefits">
+            <h4>Explication simple</h4>
+            <p class="explain-summary"></p>
+            <ul class="explain-howto"></ul>
+        </div>
+        <div class="chart-detail-panel" id="detail-benefits">
+            <p class="detail-placeholder">Cliquez sur une barre « Avant XAI » ou « Après XAI » pour afficher le détail de l'indicateur.</p>
+        </div>
+    </div>
+
+    <div class="interactive-chart-card" id="card-scenarios" data-chart-id="scenarios">
+        <div class="chart-card-title">2. Scores des scénarios prioritaires</div>
+        <p class="chart-hint">🖱️ Survolez pour le score et la sévérité · Cliquez sur une alerte pour l'interprétation SHAP</p>
+        <div class="chart-interactive-wrap">
+            <div class="chart-container-sm"><canvas id="chart-scenarios"></canvas></div>
+        </div>
+        <div class="chart-explanation" id="explain-scenarios">
+            <h4>Explication simple</h4>
+            <p class="explain-summary"></p>
+            <ul class="explain-howto"></ul>
+        </div>
+        <div class="chart-detail-panel" id="detail-scenarios">
+            <p class="detail-placeholder">Cliquez sur une barre (14:35, 14:20 ou 10:30) pour voir l'interprétation et l'action recommandée.</p>
+        </div>
+    </div>
+
+    <div class="interactive-chart-card" id="card-features" data-chart-id="features">
+        <div class="chart-card-title">3. Top features SHAP (contributions)</div>
+        <p class="chart-hint">🖱️ Survolez pour la contribution exacte · Cliquez sur une feature pour savoir comment la lire</p>
+        <div class="chart-interactive-wrap">
+            <div class="chart-container-sm"><canvas id="chart-features"></canvas></div>
+        </div>
+        <div class="chart-explanation" id="explain-features">
+            <h4>Explication simple</h4>
+            <p class="explain-summary"></p>
+            <ul class="explain-howto"></ul>
+        </div>
+        <div class="chart-detail-panel" id="detail-features">
+            <p class="detail-placeholder">Cliquez sur une feature (ex. nb_stacktrace, nb_ij) pour afficher sa signification pour l'analyste.</p>
+        </div>
+    </div>
+
+    <div class="interactive-chart-card" id="card-roadmap" data-chart-id="roadmap">
+        <div class="chart-card-title">4. Feuille de route par horizon</div>
+        <p class="chart-hint">🖱️ Survolez un segment · Cliquez pour lister les initiatives planifiées</p>
+        <div class="chart-interactive-wrap">
+            <div class="chart-container-sm"><canvas id="chart-roadmap"></canvas></div>
+        </div>
+        <div class="chart-explanation" id="explain-roadmap">
+            <h4>Explication simple</h4>
+            <p class="explain-summary"></p>
+            <ul class="explain-howto"></ul>
+        </div>
+        <div class="chart-detail-panel" id="detail-roadmap">
+            <p class="detail-placeholder">Cliquez sur Court terme, Moyen terme ou Long terme pour afficher les actions prévues.</p>
+        </div>
+    </div>
+
+    <div style="margin-top:8px;display:flex;gap:12px;flex-wrap:wrap">
+        <button type="button" class="btn btn-primary" onclick="loadPerspectiveCharts()">🔄 Actualiser les graphiques</button>
+        <button type="button" class="btn btn-secondary" onclick="resetAllDetailPanels()">↩ Réinitialiser la sélection</button>
+    </div>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Scénarios d'interprétation SHAP</h2>
+    <p style="color:#666;font-size:14px;margin-bottom:18px;line-height:1.6">
+        Pour chaque alerte, les features les plus contributives orientent l'investigation.
+        Voici des exemples basés sur les anomalies détectées aujourd'hui.
+    </p>
+    {% for s in scenarios %}
+    <div class="scenario-card">
+        <div class="scenario-header">
+            <span class="scenario-time">{{ s.time }}</span>
+            <strong>{{ s.type }}</strong>
+            <span class="severity-badge severity-{{ s.severity | lower }}">{{ s.severity }}</span>
+            <span style="color:#888;font-size:13px">Score IF : <strong style="color:{{ s.score | score_color }}">{{ s.score }}</strong></span>
+        </div>
+        <div class="feature-tags">
+            {% for f in s.top_features %}
+            <span class="feature-tag">{{ f }}</span>
+            {% endfor %}
+        </div>
+        <p style="color:#555;font-size:14px;line-height:1.65;margin-bottom:8px">
+            <strong>Interprétation XAI :</strong> {{ s.interpretation }}
+        </p>
+        <p style="color:#777;font-size:13px;line-height:1.6">
+            <strong>Action recommandée :</strong> {{ s.action }}
+        </p>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Feuille de route — évolutions prévues</h2>
+    <div class="charts-row">
+        {% for block in roadmap %}
+        <div class="roadmap-block">
+            <h3>{{ block.horizon }}</h3>
+            <ul>
+                {% for item in block.entries %}
+                <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Positionnement dans le pipeline</h2>
+    <div class="pipeline-steps">
+        <div class="pipeline-step"><span>1</span>Parsing</div>
+        <div class="pipeline-step"><span>2</span>Features</div>
+        <div class="pipeline-step"><span>3</span>Isolation Forest</div>
+        <div class="pipeline-step"><span>4</span>SHAP / XAI</div>
+        <div class="pipeline-step"><span>5</span>Dashboard</div>
+        <div class="pipeline-step" style="background:#003a73"><span>6</span>Interprétation</div>
+    </div>
+    <p style="margin-top:16px;color:#555;font-size:14px;line-height:1.7">
+        L'étape <strong>Interprétation XAI</strong> capitalise sur les explications SHAP pour améliorer
+        les processus opérationnels, documenter les retours analystes et planifier les prochaines
+        itérations du système de détection.
+    </p>
+</div>
+
+<div style="display:flex;gap:12px;flex-wrap:wrap">
+    <a href="{{ url_for('page_security') }}" class="btn btn-primary">🔒 Méthodologie complète</a>
+    <a href="{{ url_for('page_graphiques') }}" class="btn btn-secondary">📈 Graphiques SHAP</a>
+    <a href="{{ url_for('export_pdf_rapport') }}" class="btn btn-secondary">📥 Exporter PDF (inclut interprétation XAI)</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API_INTERPRETATION = '{{ url_for("get_xai_interpretation") }}';
+const SEV_COLORS = { CRITIQUE: '#E74C3C', ANORMAL: '#F39C12', SUSPECT: '#3498DB', NORMAL: '#27AE60' };
+const SEV_LABELS = { CRITIQUE: '🔴 CRITIQUE — intervention immédiate', ANORMAL: '🟠 ANORMAL — investigation requise' };
+
+let perspectiveCharts = {};
+let perspectivesData = null;
+
+const CHART_INTERACTION = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 900, easing: 'easeOutQuart', delay: (ctx) => (ctx.type === 'data' ? ctx.dataIndex * 80 : 0) },
+    interaction: { mode: 'nearest', intersect: true },
+    onHover: (evt, elements) => {
+        evt.native.target.style.cursor = elements.length ? 'pointer' : 'crosshair';
+    },
+};
+
+function fillStaticExplanation(prefix, explanation) {
+    const root = document.getElementById('explain-' + prefix);
+    if (!root || !explanation) return;
+    root.querySelector('.explain-summary').textContent = explanation.simple || '';
+    const ul = root.querySelector('.explain-howto');
+    ul.innerHTML = '';
+    (explanation.how_to_read || []).forEach(line => {
+        const li = document.createElement('li');
+        li.textContent = line;
+        ul.appendChild(li);
+    });
+}
+
+function setDetailPanel(panelId, html, cardId) {
+    const panel = document.getElementById(panelId);
+    panel.innerHTML = html;
+    panel.classList.add('has-selection');
+    document.querySelectorAll('.interactive-chart-card').forEach(c => c.classList.remove('is-active'));
+    if (cardId) document.getElementById(cardId)?.classList.add('is-active');
+}
+
+function resetDetailPanel(panelId) {
+    const placeholders = {
+        'detail-benefits': 'Cliquez sur une barre « Avant XAI » ou « Après XAI » pour afficher le détail de l\'indicateur.',
+        'detail-scenarios': 'Cliquez sur une barre (14:35, 14:20 ou 10:30) pour voir l\'interprétation et l\'action recommandée.',
+        'detail-features': 'Cliquez sur une feature (ex. nb_stacktrace, nb_ij) pour afficher sa signification pour l\'analyste.',
+        'detail-roadmap': 'Cliquez sur Court terme, Moyen terme ou Long terme pour afficher les actions prévues.',
+    };
+    const panel = document.getElementById(panelId);
+    panel.classList.remove('has-selection');
+    panel.innerHTML = '<p class="detail-placeholder">' + placeholders[panelId] + '</p>';
+}
+
+function resetAllDetailPanels() {
+    ['detail-benefits', 'detail-scenarios', 'detail-features', 'detail-roadmap'].forEach(resetDetailPanel);
+    document.querySelectorAll('.interactive-chart-card').forEach(c => c.classList.remove('is-active'));
+    Object.values(perspectiveCharts).forEach(ch => {
+        if (ch) ch.setActiveElements([], { x: 0, y: 0 });
+        ch?.update();
+    });
+}
+
+async function loadPerspectiveCharts() {
+    perspectivesData = await fetch(API_INTERPRETATION).then(r => r.json());
+    const charts = perspectivesData.charts;
+    resetAllDetailPanels();
+    renderBenefitsChart(charts.benefits_comparison);
+    renderScenarioChart(charts.scenario_scores);
+    renderFeaturesChart(charts.feature_contributions);
+    renderRoadmapChart(charts.roadmap_initiatives);
+}
+
+function renderBenefitsChart(chart) {
+    fillStaticExplanation('benefits', chart.explanation);
+    const ctx = document.getElementById('chart-benefits').getContext('2d');
+    if (perspectiveCharts.benefits) perspectiveCharts.benefits.destroy();
+
+    perspectiveCharts.benefits = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chart.labels,
+            datasets: [
+                { label: 'Avant XAI', data: chart.before, backgroundColor: '#95A5A6', hoverBackgroundColor: '#7f8c8d', borderRadius: 6 },
+                { label: 'Après XAI', data: chart.after, backgroundColor: '#0055A4', hoverBackgroundColor: '#003a73', borderRadius: 6 }
+            ]
+        },
+        options: {
+            ...CHART_INTERACTION,
+            plugins: {
+                legend: { position: 'top', onClick: (e, item, legend) => Chart.defaults.plugins.legend.onClick(e, item, legend) },
+                tooltip: {
+                    callbacks: {
+                        title: items => items[0]?.label || '',
+                        label: ctx => {
+                            const val = ctx.parsed.y;
+                            const isAfter = ctx.datasetIndex === 1;
+                            const label = chart.labels[ctx.dataIndex];
+                            const detail = chart.item_details?.[label];
+                            const lines = [ctx.dataset.label + ' : ' + val];
+                            if (detail) {
+                                lines.push(isAfter ? detail.after : detail.before);
+                            }
+                            return lines;
+                        },
+                        afterLabel: ctx => {
+                            if (ctx.datasetIndex !== 1) return '';
+                            const detail = chart.item_details?.[chart.labels[ctx.dataIndex]];
+                            return detail ? '→ ' + detail.gain : '';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#eee' }, title: { display: true, text: 'Valeur' } },
+                x: { grid: { display: false } }
+            },
+            onClick: (evt, elements) => {
+                if (!elements.length) return;
+                const idx = elements[0].index;
+                const isAfter = elements[0].datasetIndex === 1;
+                const label = chart.labels[idx];
+                const detail = chart.item_details?.[label];
+                if (!detail) return;
+                const phase = isAfter ? 'Après XAI' : 'Avant XAI';
+                const text = isAfter ? detail.after : detail.before;
+                const delta = chart.before[idx] !== chart.after[idx]
+                    ? Math.abs(chart.before[idx] - chart.after[idx])
+                    : 0;
+                setDetailPanel('detail-benefits', `
+                    <div class="detail-title">${label} — ${phase}</div>
+                    <p class="detail-body">${text}</p>
+                    <p class="detail-meta"><strong>Gain estimé :</strong> ${detail.gain}<br>
+                    <strong>Valeurs :</strong> avant ${chart.before[idx]} → après ${chart.after[idx]}
+                    ${label.includes('Temps') ? ' (écart ' + delta + ' min)' : ' (écart +' + delta + ' pts)'}</p>
+                `, 'card-benefits');
+            }
+        }
+    });
+}
+
+function renderScenarioChart(chart) {
+    fillStaticExplanation('scenarios', chart.explanation);
+    const ctx = document.getElementById('chart-scenarios').getContext('2d');
+    if (perspectiveCharts.scenarios) perspectiveCharts.scenarios.destroy();
+
+    const colors = chart.severities.map(s => SEV_COLORS[s] || '#0055A4');
+    const hoverColors = chart.severities.map(s => {
+        const base = SEV_COLORS[s] || '#0055A4';
+        return base + 'cc';
+    });
+    const scenarios = perspectivesData?.scenarios || [];
+
+    perspectiveCharts.scenarios = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chart.labels,
+            datasets: [{
+                label: 'Score Isolation Forest',
+                data: chart.scores,
+                backgroundColor: colors,
+                hoverBackgroundColor: hoverColors,
+                borderRadius: 8,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            ...CHART_INTERACTION,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: items => chart.labels[items[0]?.dataIndex] || '',
+                        label: ctx => 'Score : ' + ctx.parsed.y + ' / 100',
+                        afterLabel: ctx => {
+                            const sev = chart.severities[ctx.dataIndex];
+                            return SEV_LABELS[sev] || sev;
+                        },
+                        footer: () => 'Cliquez pour l\'interprétation SHAP complète'
+                    }
+                }
+            },
+            scales: {
+                y: { min: 0, max: 100, grid: { color: '#eee' }, title: { display: true, text: 'Score (0–100)' } },
+                x: { grid: { display: false } }
+            },
+            onClick: (evt, elements) => {
+                if (!elements.length) return;
+                const idx = elements[0].index;
+                const scenario = scenarios[idx];
+                if (!scenario) return;
+                const features = scenario.top_features.map(f => '<code>' + f + '</code>').join(', ');
+                setDetailPanel('detail-scenarios', `
+                    <div class="detail-title">${scenario.time} — ${scenario.type}</div>
+                    <p class="detail-body"><strong>Interprétation XAI :</strong> ${scenario.interpretation}</p>
+                    <p class="detail-body" style="margin-top:8px"><strong>Action :</strong> ${scenario.action}</p>
+                    <p class="detail-meta">
+                        Score IF : <strong>${scenario.score}</strong> ·
+                        Sévérité : <span class="severity-badge severity-${scenario.severity.toLowerCase()}">${scenario.severity}</span><br>
+                        Features SHAP clés : ${features}
+                    </p>
+                `, 'card-scenarios');
+            }
+        },
+        plugins: [{
+            id: 'thresholdLines',
+            afterDraw(chartInst) {
+                const { ctx: c, chartArea, scales } = chartInst;
+                const y80 = scales.y.getPixelForValue(80);
+                const y65 = scales.y.getPixelForValue(65);
+                c.save();
+                c.setLineDash([6, 4]);
+                c.font = '10px Segoe UI';
+                c.fillStyle = '#E74C3C';
+                c.strokeStyle = '#E74C3C';
+                c.beginPath(); c.moveTo(chartArea.left, y80); c.lineTo(chartArea.right, y80); c.stroke();
+                c.fillText('Seuil CRITIQUE (80)', chartArea.right - 110, y80 - 4);
+                c.fillStyle = '#F39C12';
+                c.strokeStyle = '#F39C12';
+                c.beginPath(); c.moveTo(chartArea.left, y65); c.lineTo(chartArea.right, y65); c.stroke();
+                c.fillText('Seuil ANORMAL (65)', chartArea.right - 110, y65 - 4);
+                c.restore();
+            }
+        }]
+    });
+}
+
+function renderFeaturesChart(chart) {
+    fillStaticExplanation('features', chart.explanation);
+    const ctx = document.getElementById('chart-features').getContext('2d');
+    if (perspectiveCharts.features) perspectiveCharts.features.destroy();
+
+    const maxVal = Math.max(...chart.values);
+    const barColors = chart.values.map(v => {
+        const intensity = 0.45 + (v / maxVal) * 0.55;
+        return 'rgba(0, 85, 164, ' + intensity.toFixed(2) + ')';
+    });
+
+    perspectiveCharts.features = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chart.labels,
+            datasets: [{
+                label: 'Contribution SHAP',
+                data: chart.values,
+                backgroundColor: barColors,
+                hoverBackgroundColor: '#003a73',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            ...CHART_INTERACTION,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: items => 'Feature : ' + (items[0]?.label || ''),
+                        label: ctx => 'Contribution : ' + (ctx.parsed.x * 100).toFixed(0) + ' % du poids total',
+                        afterLabel: ctx => chart.feature_meanings?.[ctx.label] || '',
+                        footer: () => 'Cliquez pour le détail complet'
+                    }
+                }
+            },
+            scales: {
+                x: { beginAtZero: true, max: 0.4, grid: { color: '#eee' }, title: { display: true, text: 'Poids SHAP' } },
+                y: { grid: { display: false } }
+            },
+            onClick: (evt, elements) => {
+                if (!elements.length) return;
+                const idx = elements[0].index;
+                const name = chart.labels[idx];
+                const val = chart.values[idx];
+                const meaning = chart.feature_meanings?.[name] || 'Feature analytique du pipeline.';
+                const rank = idx + 1;
+                setDetailPanel('detail-features', `
+                    <div class="detail-title">${name} — rang #${rank}</div>
+                    <p class="detail-body">${meaning}</p>
+                    <p class="detail-meta">
+                        <strong>Contribution SHAP :</strong> ${(val * 100).toFixed(0)} % du poids explicatif agrégé.<br>
+                        Plus cette valeur est élevée, plus l'analyste doit vérifier ce signal en priorité lors d'une alerte.
+                    </p>
+                `, 'card-features');
+            }
+        }
+    });
+}
+
+function renderRoadmapChart(chart) {
+    fillStaticExplanation('roadmap', chart.explanation);
+    const ctx = document.getElementById('chart-roadmap').getContext('2d');
+    if (perspectiveCharts.roadmap) perspectiveCharts.roadmap.destroy();
+
+    const roadmap = perspectivesData?.roadmap || [];
+    const palette = ['#0055A4', '#3498DB', '#FFD200'];
+    const hoverPalette = ['#003a73', '#2980b9', '#e6bc00'];
+
+    perspectiveCharts.roadmap = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: chart.labels,
+            datasets: [{
+                data: chart.values,
+                backgroundColor: palette,
+                hoverBackgroundColor: hoverPalette,
+                hoverOffset: 14,
+                borderWidth: 3,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            ...CHART_INTERACTION,
+            cutout: '55%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    onClick: (e, item, legend) => {
+                        Chart.defaults.plugins.legend.onClick(e, item, legend);
+                        const idx = item.index;
+                        showRoadmapDetail(idx, chart, roadmap);
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.label + ' : ' + ctx.parsed + ' initiative(s) — ' + Math.round(ctx.parsed / chart.values.reduce((a,b)=>a+b,0) * 100) + ' %',
+                        footer: () => 'Cliquez pour voir la liste des actions'
+                    }
+                }
+            },
+            onClick: (evt, elements) => {
+                if (!elements.length) return;
+                showRoadmapDetail(elements[0].index, chart, roadmap);
+            }
+        }
+    });
+}
+
+function showRoadmapDetail(idx, chart, roadmap) {
+    const horizon = chart.labels[idx];
+    const block = roadmap.find(r => r.horizon === horizon);
+    if (!block) return;
+    const items = block.entries.map(e => '<li>' + e + '</li>').join('');
+    setDetailPanel('detail-roadmap', `
+        <div class="detail-title">${horizon} — ${block.entries.length} initiative(s)</div>
+        <ul class="detail-body" style="margin-left:18px;line-height:1.85">${items}</ul>
+        <p class="detail-meta">Ces actions prolongent le pipeline XAI au-delà de la détection brute pour améliorer l'exploitation quotidienne.</p>
+    `, 'card-roadmap');
+}
+
+window.addEventListener('DOMContentLoaded', loadPerspectiveCharts);
+</script>
+{% endblock %}

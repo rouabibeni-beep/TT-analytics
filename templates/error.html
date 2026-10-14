@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erreur {{ code }} - Tunisie Télécom Analytics</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0055A4 0%, #003a73 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .error-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 85, 164, 0.3);
+            max-width: 500px;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .error-code {
+            font-size: 80px;
+            font-weight: bold;
+            color: #0055A4;
+            margin-bottom: 20px;
+            line-height: 1;
+        }
+
+        .error-message {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .error-description {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .error-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        .back-button {
+            display: inline-block;
+            background: #0055A4;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .back-button:hover {
+            background: #003a73;
+        }
+
+        .home-button {
+            display: inline-block;
+            background: #FFD200;
+            color: #0055A4;
+            padding: 12px 30px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: opacity 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+
+        .home-button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        {% if code == 404 %}
+        <div class="error-icon">🔍</div>
+        <div class="error-code">404</div>
+        <div class="error-message">Page non trouvée</div>
+        <div class="error-description">
+            Désolé, la page que vous recherchez n'existe pas ou a été déplacée.
+        </div>
+        {% elif code == 500 %}
+        <div class="error-icon">⚠️</div>
+        <div class="error-code">500</div>
+        <div class="error-message">Erreur serveur</div>
+        <div class="error-description">
+            Une erreur interne s'est produite sur le serveur. Veuillez réessayer plus tard.
+        </div>
+        {% else %}
+        <div class="error-icon">❌</div>
+        <div class="error-code">{{ code }}</div>
+        <div class="error-message">Erreur</div>
+        <div class="error-description">{{ message }}</div>
+        {% endif %}
+
+        <div>
+            <a href="javascript:history.back();" class="back-button">← Retour</a>
+            <a href="{{ url_for('dashboard') }}" class="home-button">Accueil</a>
+        </div>
+    </div>
+</body>
+</html>

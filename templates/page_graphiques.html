@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% set active_page = 'graphiques' %}
+{% block title %}Graphiques détaillés{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">📈 Graphiques détaillés</h1>
+    <p class="page-subtitle">
+        Analyses approfondies : contribution SHAP des features, types d'erreurs, comparaison
+        erreurs vs avertissements, et distribution des scores sur 24h.
+    </p>
+</div>
+
+<div class="charts-row">
+    <div class="content-section" style="margin-bottom:0">
+        <h2 class="section-title">🎯 Top features SHAP (explicabilité)</h2>
+        <div class="chart-legend-box">
+            Contribution moyenne au score d'anomalie. Plus la barre est longue, plus la feature explique les alertes.
+        </div>
+        <div class="chart-container"><canvas id="chart-shap"></canvas></div>
+    </div>
+    <div class="content-section" style="margin-bottom:0">
+        <h2 class="section-title">📊 Types d'erreurs (volume)</h2>
+        <div class="chart-legend-box">Répartition par catégorie log (stack trace, timeout, sécurité, pool…).</div>
+        <div class="chart-container"><canvas id="chart-error-types"></canvas></div>
+    </div>
+</div>
+
+<div class="charts-row" style="margin-top:24px">
+    <div class="content-section" style="margin-bottom:0">
+        <h2 class="section-title">⚖️ Erreurs vs Avertissements (24h)</h2>
+        <div class="chart-container"><canvas id="chart-errors-warnings"></canvas></div>
+    </div>
+    <div class="content-section" style="margin-bottom:0">
+        <h2 class="section-title">📉 Distribution des scores</h2>
+        <div class="chart-legend-box">Histogramme des scores 0–100 sur toutes les fenêtres.</div>
+        <div class="chart-container"><canvas id="chart-score-hist"></canvas></div>
+    </div>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">🔥 Matrice horaire détaillée (12 créneaux × 2h)</h2>
+    <div class="chart-container" style="height:320px"><canvas id="chart-hourly-matrix"></canvas></div>
+</div>
+
+<div style="display:flex;gap:12px;flex-wrap:wrap">
+    <button type="button" class="btn btn-primary" onclick="loadCharts()">🔄 Actualiser</button>
+    <a href="{{ url_for('page_db') }}" class="btn btn-secondary">💾 Retour KPIs DB</a>
+    <a href="{{ url_for('export_pdf_rapport') }}" class="btn btn-secondary">📥 Exporter PDF</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API = {
+    shap: '{{ url_for("get_shap_features") }}',
+    errorTypes: '{{ url_for("get_error_types") }}',
+    timeline: '{{ url_for("get_timeline") }}',
+    scoreHist: '{{ url_for("get_score_histogram") }}'
+};
+let charts = {};
+
+async function loadCharts() {
+    const [shap, types, timeline, hist] = await Promise.all([
+        fetch(API.shap).then(r => r.json()),
+        fetch(API.errorTypes).then(r => r.json()),
+        fetch(API.timeline).then(r => r.json()),
+        fetch(API.scoreHist).then(r => r.json())
+    ]);
+    renderShap(shap);
+    renderErrorTypes(types);
+    renderErrorsWarnings(timeline);
+    renderScoreHist(hist);
+    renderHourlyMatrix(timeline);
+}
+
+function renderShap(data) {
+    const ctx = document.getElementById('chart-shap').getContext('2d');
+    if (charts.shap) charts.shap.destroy();
+    charts.shap = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.features,
+            datasets: [{
+                label: 'Importance SHAP',
+                data: data.importance,
+                backgroundColor: '#0055A4'
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+function renderErrorTypes(data) {
+    const ctx = document.getElementById('chart-error-types').getContext('2d');
+    if (charts.types) charts.types.destroy();
+    charts.types = new Chart(ctx, {
+        type: 'polarArea',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                data: data.values,
+                backgroundColor: ['#E74C3C','#F39C12','#3498DB','#9B59B6','#1ABC9C','#95A5A6']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+function renderErrorsWarnings(timeline) {
+    const sampled = timeline.filter((_, i) => i % 12 === 0);
+    const ctx = document.getElementById('chart-errors-warnings').getContext('2d');
+    if (charts.ew) charts.ew.destroy();
+    charts.ew = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sampled.map(d => d.time),
+            datasets: [
+                { label: 'Erreurs', data: sampled.map(d => d.errors), backgroundColor: '#E74C3C' },
+                { label: 'Avertissements', data: sampled.map(d => d.warnings || 0), backgroundColor: '#F39C12' }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { x: { stacked: true }, y: { stacked: true } }
+        }
+    });
+}
+
+function renderScoreHist(hist) {
+    const ctx = document.getElementById('chart-score-hist').getContext('2d');
+    if (charts.hist) charts.hist.destroy();
+    charts.hist = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: hist.bins,
+            datasets: [{
+                label: 'Nombre de fenêtres',
+                data: hist.counts,
+                backgroundColor: hist.counts.map((_, i) =>
+                    i >= 16 ? '#E74C3C' : i >= 13 ? '#F39C12' : i >= 9 ? '#3498DB' : '#27AE60'
+                )
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+function renderHourlyMatrix(timeline) {
+    const hours = [];
+    const scores = [];
+    for (let h = 0; h < 24; h++) {
+        hours.push(String(h).padStart(2, '0') + 'h');
+        const slice = timeline.filter(d => d.time.startsWith(String(h).padStart(2, '0')));
+        const avg = slice.length ? slice.reduce((s, d) => s + d.score, 0) / slice.length : 0;
+        scores.push(Math.round(avg * 10) / 10);
+    }
+    const ctx = document.getElementById('chart-hourly-matrix').getContext('2d');
+    if (charts.matrix) charts.matrix.destroy();
+    charts.matrix = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: hours,
+            datasets: [{
+                label: 'Score moyen par heure',
+                data: scores,
+                borderColor: '#0055A4',
+                backgroundColor: 'rgba(0,85,164,0.2)',
+                fill: true,
+                tension: 0.35,
+                pointRadius: 5,
+                pointBackgroundColor: scores.map(s => s >= 80 ? '#E74C3C' : s >= 65 ? '#F39C12' : '#0055A4')
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { min: 0, max: 100 } }
+        }
+    });
+}
+
+window.addEventListener('DOMContentLoaded', loadCharts);
+</script>
+{% endblock %}

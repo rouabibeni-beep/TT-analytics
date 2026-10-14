@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% set active_page = 'security' %}
+{% block title %}Sécurité & Algorithmes{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">🔒 Sécurité &amp; algorithmes d'analyse</h1>
+    <p class="page-subtitle">
+        Guide pour l'analyste : comment les logs JBoss/WildFly deviennent des alertes,
+        comment interpréter les scores et quelles actions mener à chaque niveau.
+    </p>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Vue d'ensemble du pipeline</h2>
+    <div class="pipeline-steps">
+        <div class="pipeline-step"><span>1</span>Parsing<br><small>logs → CSV</small></div>
+        <div class="pipeline-step"><span>2</span>Features<br><small>33 indicateurs / 5 min</small></div>
+        <div class="pipeline-step"><span>3</span>Isolation Forest<br><small>score 0–100</small></div>
+        <div class="pipeline-step"><span>4</span>SHAP<br><small>explication XAI</small></div>
+        <div class="pipeline-step"><span>5</span>Dashboard<br><small>alertes &amp; PDF</small></div>
+        <div class="pipeline-step" style="background:#003a73"><span>6</span>Interprétation<br><small>lecture SHAP</small></div>
+    </div>
+    <p style="margin-top:16px;color:#555;font-size:14px;line-height:1.7">
+        Chaque journée est découpée en <strong>288 fenêtres de 5 minutes</strong>.
+        Le modèle compare chaque fenêtre au comportement « normal » observé sur la même période.
+        En cas d'alerte, SHAP indique <em>quels signaux</em> ont le plus contribué au score.
+    </p>
+</div>
+
+<div class="algo-card">
+    <h3>Étape 1 — Parsing des logs (<code>parse_logs.py</code>)</h3>
+    <p><strong>Objectif :</strong> transformer des fichiers logs bruts (souvent compressés <code>.gz</code>) en une table structurée exploitable par le machine learning.</p>
+    <p><strong>Ce que fait l'algorithme :</strong></p>
+    <ul>
+        <li>Lit chaque ligne avec une expression régulière : <strong>horodatage</strong>, <strong>niveau</strong> (INFO, WARN, ERROR…), <strong>composant</strong>, <strong>thread</strong>, <strong>message</strong>.</li>
+        <li>Extrait les codes d'erreur connus : <code>ARJUNA</code> (transactions XA), <code>IJ</code> (pool de connexions), <code>JBAS</code>, etc.</li>
+        <li>Classifie le composant : gestionnaire de transactions, pool, couche web, SSH, application métier…</li>
+        <li>Marque les événements sensibles : authentification, accès refusé, timeout, stack trace, exception Java.</li>
+        <li>Assigne chaque événement à une <strong>fenêtre de 5 minutes</strong> (<code>time_window</code>).</li>
+    </ul>
+    <p><strong>Sorties :</strong> <code>logs_parsed.csv</code> · rapport <code>parsing_summary.txt</code> (taux de lignes non parsées, volume par niveau).</p>
+    <p><strong>Pour l'analyste :</strong> si le taux de parsing est bas, les anomalies peuvent être sous-estimées — vérifier le format des logs avant d'interpréter le dashboard.</p>
+</div>
+
+<div class="algo-card">
+    <h3>Étape 2 — Feature engineering (<code>features.py</code>)</h3>
+    <p><strong>Objectif :</strong> résumer l'activité de chaque fenêtre de 5 min en indicateurs numériques comparables dans le temps.</p>
+    <p><strong>Principales familles de features :</strong></p>
+    <ul>
+        <li><strong>Volume :</strong> <code>total_events</code>, <code>nb_error</code>, <code>nb_warn</code>, ratios erreur/avertissement.</li>
+        <li><strong>Sévérité :</strong> <code>severity_mean</code>, <code>severity_max</code> (pondération DEBUG→FATAL).</li>
+        <li><strong>Composants :</strong> événements transaction manager, pool connexion, web, SSH, appli télécom.</li>
+        <li><strong>Codes métier :</strong> <code>nb_arjuna</code>, <code>nb_ij</code>, <code>nb_jbas</code> — ciblage rapide du sous-système en panne.</li>
+        <li><strong>Signaux critiques :</strong> <code>nb_security</code>, <code>nb_timeout</code>, <code>nb_stacktrace</code>, <code>nb_exception</code>.</li>
+        <li><strong>Contexte temporel :</strong> z-scores sur 1 h glissante (pic soudain vs tendance) · <code>deviation_vs_hour_baseline</code> (pic inhabituel à cette heure de la journée).</li>
+    </ul>
+    <p><strong>Sorties :</strong> <code>features.csv</code> (une ligne par fenêtre) · <code>features_report.txt</code> (top fenêtres suspectes en règles heuristiques).</p>
+    <p><strong>Pour l'analyste :</strong> une fenêtre anormale n'est pas qu'un « pic d'erreurs » — regarder aussi la sécurité, les timeouts et le composant dominant.</p>
+</div>
+
+<div class="algo-card" style="border-left-color:#E74C3C">
+    <h3>Étape 3 — Isolation Forest (<code>model.py</code>)</h3>
+    <p><strong>Objectif :</strong> détecter automatiquement les fenêtres atypiques <em>sans étiquettes manuelles</em> (apprentissage non supervisé).</p>
+    <p><strong>Principe :</strong> l'algorithme construit des arbres qui isolent aléatoirement les points. Une fenêtre très différente des autres est isolée en peu de coupes → score d'anomalie élevé.</p>
+    <p><strong>Paramètres du projet :</strong></p>
+    <ul>
+        <li><strong>200 arbres</strong> (<code>n_estimators=200</code>) pour stabiliser le score.</li>
+        <li><strong>15 % de contamination attendue</strong> — le modèle suppose qu'environ 15 % des fenêtres peuvent être atypiques sur la journée analysée.</li>
+        <li><strong>29 features ML</strong> normalisées (StandardScaler) : volume, ratios, composants, z-scores, écart à la baseline horaire.</li>
+    </ul>
+    <p><strong>Transformation du score :</strong> le score brut du modèle est converti en <strong>0 à 100</strong> (100 = le plus anormal de la journée). Ce score alimente le dashboard et la heatmap.</p>
+    <p><strong>Sorties :</strong> <code>resultats_modele.csv</code> · <code>model_report.txt</code> · graphiques timeline / PCA / heatmap.</p>
+    <p><strong>Pour l'analyste :</strong> un score élevé signifie « comportement rare sur cette journée », pas forcément une panne confirmée — toujours croiser avec les logs bruts de la fenêtre.</p>
+</div>
+
+<div class="algo-card" style="border-left-color:#FFD200">
+    <h3>Étape 4 — SHAP — explicabilité (<code>shap_xai.py</code>)</h3>
+    <p><strong>Objectif :</strong> répondre à la question <em>« Pourquoi cette fenêtre est-elle flaggée ? »</em> après la détection automatique.</p>
+    <p><strong>Principe :</strong> SHAP (SHapley Additive exPlanations) attribue à chaque feature une contribution au score. Les features avec la plus forte contribution positive expliquent l'alerte.</p>
+    <p><strong>Exemples d'interprétation :</strong></p>
+    <ul>
+        <li>Score critique + forte contribution de <code>nb_stacktrace</code> → erreur applicative / exception non gérée.</li>
+        <li>Forte contribution de <code>nb_security</code> ou <code>nb_security_zscore</code> → pic d'événements auth / accès / credential.</li>
+        <li>Forte contribution de <code>nb_ij</code> ou <code>nb_pool_ev</code> → saturation ou fuite du pool de connexions.</li>
+        <li>Forte contribution de <code>nb_arjuna</code> → problème de transactions distribuées (XA).</li>
+        <li>Forte contribution de <code>deviation_vs_hour_baseline</code> → activité anormale pour l'heure (ex. pic à 3h du matin).</li>
+    </ul>
+    <p><strong>Sorties :</strong> <code>shap_report.txt</code> · graphiques d'importance globale, beeswarm et focus sur les anomalies critiques.</p>
+    <p><strong>Pour l'analyste :</strong> utiliser SHAP pour prioriser la root cause avant d'ouvrir des centaines de lignes de logs — puis valider dans <code>logs_parsed.csv</code> sur la fenêtre concernée.</p>
+</div>
+
+<div class="algo-card">
+    <h3>Étape 5 — Alertes &amp; rapport (dashboard + PDF)</h3>
+    <p><strong>Objectif :</strong> centraliser les résultats pour le suivi opérationnel et la communication.</p>
+    <ul>
+        <li><strong>Page Base de données :</strong> KPIs, heatmap 24h, timeline score/erreurs, tableau des anomalies prioritaires.</li>
+        <li><strong>Page Graphiques :</strong> distribution des sévérités, histogramme des scores, features SHAP.</li>
+        <li><strong>Page Interprétation XAI :</strong> scénarios de lecture SHAP, bénéfices et feuille de route.</li>
+        <li><strong>Rapport PDF :</strong> synthèse exportable pour comité ou escalade.</li>
+    </ul>
+    <p><strong>Pour l'analyste :</strong> traiter d'abord les fenêtres <span class="severity-badge severity-critique">CRITIQUE</span>, puis consulter SHAP, puis les logs sources sur l'intervalle horaire exact (ex. 14:30–14:35).</p>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Seuils de score et conduite à tenir</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Score</th><th>Niveau</th><th>Signification</th><th>Action analyste</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>0 – 45</td>
+                <td><span class="severity-badge severity-normal">NORMAL</span></td>
+                <td>Comportement dans la norme de la journée</td>
+                <td>Aucune action — surveillance passive</td>
+            </tr>
+            <tr>
+                <td>45 – 65</td>
+                <td><span class="severity-badge severity-suspect">SUSPECT</span></td>
+                <td>Légère déviation, possible bruit ou début d'incident</td>
+                <td>Surveiller la tendance sur les 2–3 fenêtres suivantes</td>
+            </tr>
+            <tr>
+                <td>65 – 80</td>
+                <td><span class="severity-badge severity-anormal">ANORMAL</span></td>
+                <td>Comportement clairement atypique</td>
+                <td>Ouvrir les logs de la fenêtre · identifier composant et code erreur</td>
+            </tr>
+            <tr>
+                <td>80 – 100</td>
+                <td><span class="severity-badge severity-critique">CRITIQUE</span></td>
+                <td>Fenêtre parmi les plus anormales de la journée</td>
+                <td>Intervention immédiate · SHAP · escalade si impact métier</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Fiches features — lecture rapide</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Feature</th><th>Signification pour l'analyste</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>nb_error</code> / <code>nb_error_zscore</code></td><td>Volume d'erreurs et pic par rapport à la dernière heure</td></tr>
+            <tr><td><code>nb_stacktrace</code></td><td>Exceptions Java — souvent cause racine applicative</td></tr>
+            <tr><td><code>nb_security</code></td><td>Tentatives auth, accès refusés, événements credential</td></tr>
+            <tr><td><code>nb_timeout</code></td><td>Lenteurs réseau ou services non répondants</td></tr>
+            <tr><td><code>nb_arjuna</code></td><td>Transactions XA / récupération JTA (ARJUNA016037…)</td></tr>
+            <tr><td><code>nb_ij</code></td><td>Pool de connexions JCA (IJ000100…)</td></tr>
+            <tr><td><code>nb_pool_ev</code></td><td>Activité globale sur le sous-système pool</td></tr>
+            <tr><td><code>deviation_vs_hour_baseline</code></td><td>Activité inhabituelle pour cette heure (batch nocturne vs incident)</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Méthode d'investigation recommandée</h2>
+    <ol style="margin-left:20px;color:#555;line-height:1.9;font-size:14px">
+        <li>Repérer une alerte sur la <strong>heatmap</strong> ou le tableau des anomalies prioritaires.</li>
+        <li>Noter l'<strong>heure exacte</strong> de la fenêtre (ex. 14:35 = fenêtre 14:35–14:40).</li>
+        <li>Consulter le rapport <strong>SHAP</strong> pour les 3 features les plus contributives.</li>
+        <li>Filtrer <code>logs_parsed.csv</code> sur cette fenêtre et ces types d'événements.</li>
+        <li>Classer l'incident : applicatif, infrastructure, sécurité ou charge normale (batch).</li>
+        <li>Documenter et exporter le <strong>rapport PDF</strong> si escalade nécessaire.</li>
+    </ol>
+</div>
+
+<div class="content-section">
+    <h2 class="section-title">Événements sécurité récents (exemples)</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Heure</th><th>Événement</th><th>Niveau</th><th>Piste d'analyse</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>14:35</td>
+                <td>Pic <code>nb_security</code></td>
+                <td><span class="severity-badge severity-critique">CRITIQUE</span></td>
+                <td>SHAP : vérifier auth / IP / comptes — score IF 92.1</td>
+            </tr>
+            <tr>
+                <td>11:45</td>
+                <td>Accès non autorisé <code>/admin/config</code></td>
+                <td><span class="severity-badge severity-anormal">ANORMAL</span></td>
+                <td>Feature sécurité + logs HTTP / Undertow</td>
+            </tr>
+            <tr>
+                <td>08:20</td>
+                <td>Renouvellement certificat SSL</td>
+                <td><span class="severity-badge severity-suspect">SUSPECT</span></td>
+                <td>Changement planifié — valider si fenêtre attendue</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<a href="{{ url_for('page_db') }}" class="btn btn-primary">← Retour aux KPIs DB</a>
+<a href="{{ url_for('page_graphiques') }}" class="btn btn-secondary" style="margin-left:8px">📈 Graphiques SHAP</a>
+<a href="{{ url_for('page_interpretation_xai') }}" class="btn btn-secondary" style="margin-left:8px">🧠 Interprétation XAI</a>
+{% endblock %}

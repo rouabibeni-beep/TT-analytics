@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TT Analytics{% endblock %} — Tunisie Télécom</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; color: #333; }
+        .navbar {
+            background: linear-gradient(135deg, #0055A4 0%, #003a73 100%);
+            color: white; padding: 18px 36px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            height: 72px;
+        }
+        .navbar-brand { font-size: 22px; font-weight: bold; }
+        .navbar-user { display: flex; align-items: center; gap: 18px; }
+        .user-info .username { font-weight: 600; font-size: 14px; }
+        .logout-btn {
+            background: #FFD200; color: #0055A4; border: none;
+            padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;
+        }
+        .logout-btn:hover { opacity: 0.92; }
+        .sidebar {
+            width: 260px; background: white; height: calc(100vh - 72px);
+            position: fixed; left: 0; top: 72px; border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+        }
+        .sidebar-menu { list-style: none; padding: 16px 0; }
+        .sidebar-menu li { border-left: 4px solid transparent; }
+        .sidebar-menu li a {
+            display: block; padding: 14px 22px; color: #555;
+            text-decoration: none; font-size: 14px; transition: all 0.2s;
+        }
+        .sidebar-menu li.active { border-left-color: #FFD200; background: #f8fafc; }
+        .sidebar-menu li.active a { color: #0055A4; font-weight: 600; }
+        .sidebar-menu li a:hover { color: #0055A4; background: #f8fafc; }
+        .sidebar-section {
+            padding: 12px 22px 6px; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.08em; color: #999; font-weight: 600;
+        }
+        .main-content { margin-left: 260px; margin-top: 72px; padding: 32px 40px; min-height: calc(100vh - 72px); }
+        .page-header { margin-bottom: 28px; }
+        .page-title { font-size: 28px; font-weight: bold; color: #1a1a2e; margin-bottom: 8px; }
+        .page-subtitle { color: #777; font-size: 14px; line-height: 1.5; }
+        .kpi-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 18px; margin-bottom: 28px;
+        }
+        .kpi-card {
+            background: white; padding: 22px; border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+            border-top: 3px solid #0055A4;
+        }
+        .kpi-card.critical { border-top-color: #E74C3C; }
+        .kpi-card.warning { border-top-color: #F39C12; }
+        .kpi-card.success { border-top-color: #27AE60; }
+        .kpi-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+        .kpi-value { font-size: 26px; font-weight: bold; color: #0055A4; }
+        .kpi-hint { font-size: 12px; color: #666; margin-top: 6px; }
+        .kpi-status { font-size: 11px; padding: 3px 8px; border-radius: 4px; display: inline-block; margin-top: 8px; }
+        .status-good { background: #d4edda; color: #155724; }
+        .status-warning { background: #fff3cd; color: #856404; }
+        .status-critical { background: #f8d7da; color: #721c24; }
+        .content-section {
+            background: white; padding: 24px; border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06); margin-bottom: 24px;
+        }
+        .section-title {
+            font-size: 18px; font-weight: bold; color: #333; margin-bottom: 18px;
+            padding-bottom: 12px; border-bottom: 2px solid #FFD200;
+        }
+        .chart-container { position: relative; height: 380px; }
+        .chart-container-sm { position: relative; height: 280px; }
+        .charts-row {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+        .chart-legend-box {
+            background: #f8fafc; border-left: 4px solid #0055A4;
+            padding: 14px 18px; border-radius: 6px; margin-bottom: 16px;
+            font-size: 13px; color: #555; line-height: 1.6;
+        }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .data-table th {
+            background: #f5f7fa; padding: 12px; text-align: left;
+            font-weight: 600; color: #555; border-bottom: 2px solid #e8ecf0;
+        }
+        .data-table td { padding: 12px; border-bottom: 1px solid #eee; }
+        .data-table tr:hover { background: #fafbfc; }
+        .severity-badge {
+            display: inline-block; padding: 4px 10px; border-radius: 4px;
+            font-size: 11px; font-weight: 700;
+        }
+        .severity-critique { background: #fde8e8; color: #c0392b; }
+        .severity-anormal { background: #fff3cd; color: #856404; }
+        .severity-suspect { background: #d1ecf1; color: #0c5460; }
+        .severity-normal { background: #d4edda; color: #155724; }
+        .btn {
+            padding: 11px 22px; border: none; border-radius: 6px;
+            cursor: pointer; font-weight: 600; font-size: 14px;
+            text-decoration: none; display: inline-block;
+        }
+        .btn-primary { background: #0055A4; color: white; }
+        .btn-primary:hover { background: #003a73; }
+        .btn-secondary { background: #FFD200; color: #0055A4; }
+        .algo-card {
+            padding: 20px; background: #f8fafc; border-radius: 8px;
+            margin-bottom: 16px; border-left: 4px solid #0055A4;
+        }
+        .algo-card h3 { color: #0055A4; margin-bottom: 10px; font-size: 16px; }
+        .algo-card p, .algo-card li { color: #555; line-height: 1.7; font-size: 14px; }
+        .algo-card ul { margin-left: 20px; margin-top: 8px; }
+        .pipeline-steps {
+            display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0;
+        }
+        .pipeline-step {
+            flex: 1; min-width: 120px; background: #0055A4; color: white;
+            padding: 12px; border-radius: 8px; text-align: center; font-size: 12px;
+        }
+        .pipeline-step span { display: block; font-size: 20px; margin-bottom: 4px; }
+        .report-card {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px; border: 1px solid #e8ecf0; border-radius: 8px; margin-bottom: 12px;
+        }
+        .report-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
+        @media (max-width: 768px) {
+            .sidebar { width: 0; left: -260px; }
+            .main-content { margin-left: 0; padding: 20px; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">📊 TT Analytics — Détection d'anomalies</div>
+        <div class="navbar-user">
+            <div class="user-info">
+                <div class="username">👤 {{ username }}</div>
+            </div>
+            <form method="POST" action="{{ url_for('logout') }}" style="margin:0;">
+                <button type="submit" class="logout-btn">Déconnexion</button>
+            </form>
+        </div>
+    </nav>
+
+    <aside class="sidebar">
+        <ul class="sidebar-menu">
+            <li class="sidebar-section">Analyse</li>
+            <li class="{% if active_page == 'dashboard' %}active{% endif %}">
+                <a href="{{ url_for('dashboard') }}">🏠 Dashboard interactif</a>
+            </li>
+            <li class="{% if active_page == 'db' %}active{% endif %}">
+                <a href="{{ url_for('page_db') }}">💾 Base de données &amp; KPIs</a>
+            </li>
+            <li class="{% if active_page == 'security' %}active{% endif %}">
+                <a href="{{ url_for('page_security') }}">🔒 Sécurité &amp; Algorithmes</a>
+            </li>
+            <li class="{% if active_page == 'interpretation' %}active{% endif %}">
+                <a href="{{ url_for('page_interpretation_xai') }}">🧠 Interprétation XAI</a>
+            </li>
+            <li class="{% if active_page == 'rapport' %}active{% endif %}">
+                <a href="{{ url_for('page_rapport') }}">📋 Rapport analytique (PDF)</a>
+            </li>
+            <li class="{% if active_page == 'graphiques' %}active{% endif %}">
+                <a href="{{ url_for('page_graphiques') }}">📈 Graphiques détaillés</a>
+            </li>
+        </ul>
+    </aside>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

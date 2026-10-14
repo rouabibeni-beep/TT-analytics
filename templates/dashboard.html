@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TT Analytics</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; color: #333; }
+        .navbar {
+            background: linear-gradient(135deg, #0055A4 0%, #003a73 100%);
+            color: white; padding: 20px 40px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .navbar-brand { font-size: 24px; font-weight: bold; }
+        .navbar-user { display: flex; align-items: center; gap: 20px; }
+        .user-info .username { font-weight: 600; font-size: 14px; }
+        .logout-btn {
+            background: #FFD200; color: #0055A4; border: none;
+            padding: 10px 20px; border-radius: 6px; cursor: pointer;
+            font-weight: 600; transition: opacity 0.3s;
+        }
+        .logout-btn:hover { opacity: 0.9; }
+        .sidebar {
+            width: 250px; background: white; height: calc(100vh - 80px);
+            position: fixed; left: 0; top: 80px; border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+        }
+        .sidebar-menu { list-style: none; padding: 20px 0; }
+        .sidebar-menu li { border-left: 4px solid transparent; transition: all 0.3s; }
+        .sidebar-menu li a {
+            display: block; padding: 15px 20px; color: #666;
+            text-decoration: none; transition: all 0.3s;
+        }
+        .sidebar-menu li.active { border-left-color: #FFD200; background: #f9f9f9; }
+        .sidebar-menu li.active a { color: #0055A4; font-weight: 600; }
+        .sidebar-menu li a:hover { color: #0055A4; padding-left: 25px; }
+        .main-content { margin-left: 250px; margin-top: 80px; padding: 40px; }
+        .section-pane { display: none !important; }
+        .section-pane.active { display: block !important; }
+        .page-header { margin-bottom: 30px; }
+        .page-title { font-size: 32px; font-weight: bold; color: #333; margin-bottom: 10px; }
+        .page-subtitle { color: #999; font-size: 14px; }
+        .kpi-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px; margin-bottom: 40px;
+        }
+        .kpi-card {
+            background: white; padding: 25px; border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); }
+        .kpi-label { font-size: 13px; color: #999; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
+        .kpi-value { font-size: 28px; font-weight: bold; color: #0055A4; margin-bottom: 5px; }
+        .kpi-status { font-size: 12px; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .status-good { background: #d4edda; color: #155724; }
+        .status-warning { background: #fff3cd; color: #856404; }
+        .status-critical { background: #f8d7da; color: #721c24; }
+        .content-section {
+            background: white; padding: 25px; border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 20px; font-weight: bold; color: #333; margin-bottom: 20px;
+            padding-bottom: 15px; border-bottom: 2px solid #FFD200;
+        }
+        .chart-container { position: relative; height: 400px; margin-bottom: 20px; }
+        .chart-container-sm { position: relative; height: 300px; margin: 20px 0; }
+        .anomalies-table { width: 100%; border-collapse: collapse; }
+        .anomalies-table th {
+            background: #f9f9f9; padding: 12px; text-align: left;
+            font-weight: 600; color: #666; border-bottom: 2px solid #e0e0e0;
+        }
+        .anomalies-table td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
+        .anomalies-table tr:hover { background: #f9f9f9; }
+        .severity-badge {
+            display: inline-block; padding: 6px 12px; border-radius: 4px;
+            font-size: 12px; font-weight: 600;
+        }
+        .severity-critique, .severity-high { background: #f8d7da; color: #721c24; }
+        .severity-anormal, .severity-medium { background: #fff3cd; color: #856404; }
+        .severity-suspect, .severity-low { background: #d1ecf1; color: #0c5460; }
+        .action-buttons { display: flex; gap: 10px; margin-top: 30px; flex-wrap: wrap; }
+        .btn {
+            padding: 12px 24px; border: none; border-radius: 6px;
+            cursor: pointer; font-weight: 600; transition: all 0.3s;
+        }
+        .btn-primary { background: #0055A4; color: white; }
+        .btn-primary:hover { background: #003a73; }
+        .btn-secondary { background: #FFD200; color: #0055A4; }
+        .btn-secondary:hover { background: #e6b800; }
+        .btn-sm { padding: 8px 16px; font-size: 14px; border-radius: 4px; }
+        .btn-danger { background: #E74C3C; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .loading { text-align: center; padding: 20px; color: #999; }
+        .spinner {
+            border: 4px solid #f3f3f3; border-top: 4px solid #0055A4;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .metric-row {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px; margin-bottom: 20px;
+        }
+        .metric-card {
+            padding: 20px; background: #f9f9f9; border-radius: 8px;
+            border-left: 4px solid #0055A4;
+        }
+        .metric-label { font-size: 12px; color: #999; text-transform: uppercase; margin-bottom: 10px; }
+        .metric-value { font-size: 24px; font-weight: bold; color: #0055A4; }
+        .metric-trend { font-size: 12px; color: #27AE60; margin-top: 5px; }
+
+        .alert-table { width: 100%; border-collapse: collapse; }
+        .alert-table th { background: #f9f9f9; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e0e0e0; }
+        .alert-table td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
+        .alert-table tr:hover { background: #f9f9f9; }
+        .security-score { font-size: 48px; font-weight: bold; color: #27AE60; text-align: center; padding: 20px; }
+
+        .db-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .db-table th, .db-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        .db-table th { background: #f9f9f9; font-weight: 600; }
+        .db-table tr:hover { background: #f9f9f9; }
+        .status-badge-online { background: #d4edda; color: #155724; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .info-card {
+            padding: 15px; background: #f9f9f9; border-radius: 6px;
+            border-left: 4px solid #0055A4;
+        }
+        .info-label { font-size: 12px; color: #999; text-transform: uppercase; }
+        .info-value { font-size: 18px; font-weight: bold; color: #0055A4; margin-top: 5px; }
+
+        .config-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px; border-bottom: 1px solid #e0e0e0;
+        }
+        .config-item:last-child { border-bottom: none; }
+        .config-label { font-weight: 600; color: #333; }
+        .config-value { color: #666; font-size: 14px; }
+        .toggle-switch {
+            position: relative; width: 50px; height: 24px;
+            background: #ccc; border-radius: 12px; cursor: pointer; transition: background 0.3s;
+        }
+        .toggle-switch.on { background: #27AE60; }
+        .toggle-switch::after {
+            content: ''; position: absolute; width: 20px; height: 20px;
+            background: white; border-radius: 50%; top: 2px; left: 2px;
+            transition: left 0.3s;
+        }
+        .toggle-switch.on::after { left: 28px; }
+        .alert-info {
+            background: #d1ecf1; border-left: 4px solid #0c5460;
+            color: #0c5460; padding: 15px; border-radius: 4px; margin-bottom: 20px;
+        }
+
+        .report-card {
+            padding: 20px; border: 1px solid #e0e0e0; border-radius: 6px;
+            margin-bottom: 15px; display: flex; justify-content: space-between;
+            align-items: center; transition: all 0.3s;
+        }
+        .report-card:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+        .report-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .filter-section { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-section select { padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; }
+
+        .status-completed { background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-failed { background: #f8d7da; color: #721c24; }
+
+        @media (max-width: 768px) {
+            .sidebar { width: 0; left: -250px; }
+            .main-content { margin-left: 0; }
+            .navbar { flex-direction: column; gap: 15px; padding: 15px; }
+            .info-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-brand">📊 TT Analytics Dashboard</div>
+        <div class="navbar-user">
+            <div class="user-info">
+                <div class="username">👤 {{ username }}</div>
+            </div>
+            <form method="POST" action="{{ url_for('logout') }}" style="margin: 0;">
+                <button type="submit" class="logout-btn">Déconnexion</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <ul class="sidebar-menu" id="sidebar-menu">
+            <li class="active"><a href="#dashboard" data-section="dashboard">🏠 Dashboard</a></li>
+            <li><a href="#performance" data-section="performance">⚡ Performance</a></li>
+            <li><a href="#security" data-section="security">🔒 Sécurité</a></li>
+            <li><a href="#details_db" data-section="details_db">💾 Base de Données</a></li>
+            <li><a href="#configuration" data-section="configuration">⚙️ Configuration</a></li>
+            <li><a href="#rapport" data-section="rapport">📋 Rapports</a></li>
+        </ul>
+    </div>
+
+    <!-- PANE: Dashboard -->
+    <div id="pane-dashboard" class="main-content section-pane active" data-pane="dashboard">
+        <div class="page-header">
+            <h1 class="page-title">Dashboard Analytics</h1>
+            <p class="page-subtitle">Suivi en temps réel des anomalies et performances</p>
+        </div>
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Total Anomalies</div>
+                <div class="kpi-value" id="total-anomalies">-</div>
+                <span class="kpi-status status-warning">⚠️ À surveiller</span>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Critiques</div>
+                <div class="kpi-value" id="critiques" style="color: #E74C3C;">-</div>
+                <span class="kpi-status status-critical">🔴 Critique</span>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Uptime</div>
+                <div class="kpi-value" id="uptime">-</div>
+                <span class="kpi-status status-good">✅ Excellent</span>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Erreurs (24h)</div>
+                <div class="kpi-value" id="errors-24h">-</div>
+                <span class="kpi-status status-warning">⚠️ Surveiller</span>
+            </div>
+        </div>
+        <div class="content-section">
+            <h2 class="section-title">📈 Timeline Anomalies (24h)</h2>
+            <div class="chart-container">
+                <canvas id="timeline-chart"></canvas>
+            </div>
+        </div>
+        <div class="content-section">
+            <h2 class="section-title">🔧 Métriques Système</h2>
+            <div class="kpi-grid">
+                <div>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">CPU</label>
+                    <div style="width: 100%; background: #e0e0e0; height: 10px; border-radius: 5px; overflow: hidden;">
+                        <div id="cpu-bar" style="background: #0055A4; height: 100%; width: 0%;"></div>
+                    </div>
+                    <span id="cpu-value" style="font-size: 12px; color: #999;">-</span>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">Mémoire</label>
+                    <div style="width: 100%; background: #e0e0e0; height: 10px; border-radius: 5px; overflow: hidden;">
+                        <div id="memory-bar" style="background: #FFD200; height: 100%; width: 0%;"></div>
+                    </div>
+                    <span id="memory-value" style="font-size: 12px; color: #999;">-</span>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">Disque</label>
+                    <div style="width: 100%; background: #e0e0e0; height: 10px; border-radius: 5px; overflow: hidden;">
+                        <div id="disk-bar" style="background: #27AE60; height: 100%; width: 0%;"></div>
+                    </div>
+                    <span id="disk-value" style="font-size: 12px; color: #999;">-</span>
+                </div>
+            </div>
+        </div>
+        <div class="content-section">
+            <h2 class="section-title">🚨 Anomalies Détectées</h2>
+            <div id="anomalies-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Chargement des données...
+                </div>
+            </div>
+        </div>
+        <div class="action-buttons">
+            <button type="button" class="btn btn-primary" onclick="refreshData()">🔄 Actualiser</button>
+            <button type="button" class="btn btn-secondary" id="btn-pdf-dashboard">📥 Télécharger Rapport PDF</button>
+        </div>
+    </div>
+
+    <div id="pane-performance" class="main-content section-pane" data-pane="performance">
+        <h1 class="page-title">⚡ Analyse de Performance</h1>
+        <div class="content-section">
+            <h2 class="section-title">Métriques en Temps Réel</h2>
+            <div class="metric-row">
+                <div class="metric-card">
+                    <div class="metric-label">Temps de Réponse Moyen</div>
+                    <div class="metric-value">245 ms</div>
+                    <div class="metric-trend">↓ -12% vs hier</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Taux d'Erreur</div>
+                    <div class="metric-value">0.15%</div>
+                    <div class="metric-trend">↓ -5% vs hier</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Disponibilité</div>
+                    <div class="metric-value">99.7%</div>
+                    <div class="metric-trend">↑ +0.1% vs hier</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Débit</div>
+                    <div class="metric-value">1.2 GB/s</div>
+                    <div class="metric-trend">↑ +8% vs hier</div>
+                </div>
+            </div>
+        </div>
+        <div class="content-section">
+            <h2 class="section-title">Historique de Performance (7 jours)</h2>
+            <div class="chart-container-sm">
+                <canvas id="perf-chart"></canvas>
+            </div>
+        </div>
+        <div class="content-section">
+            <h2 class="section-title">Recommandations</h2>
+            <ul style="line-height: 2; color: #666;">
+                <li>✅ Les temps de réponse sont dans les normes acceptables</li>
+                <li>⚠️ Surveiller l'utilisation mémoire en heures de pointe</li>
+                <li>💡 Optimiser les requêtes lentes identifiées</li>
+                <li>🔧 Mettre à jour les drivers réseau le mois prochain</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="pane-security" class="main-content section-pane" data-pane="security">
+        <h1 class="page-title">🔒 Analyse de Sécurité</h1>
+        <div class="content-section">
+            <h2 class="section-title">Score de Sécurité Global</h2>
+            <div class="security-score">92/100 ✅</div>
+            <p style="text-align: center; color: #666;">Excellent - Continuer la surveillance</p>
+        </div>
+        <div class="content-section">
+            <h2 class="section-title">Événements de Sécurité (24 dernières heures)</h2>
+            <table class="alert-table">
+                <thead>
+                    <tr>
+                        <th>Heure</th>
+                        <th>Type</th>
+                        <th>Sévérité</th>
+                        <th>Détails</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>14:32</td>
+                        <td>Tentative de connexion échouée</td>
+                        <td><span class="severity-badge severity-low">Faible</span></td>
+                        <td>IP: 192.168.1.100</td>
+                        <td>✅ Réglé</td>
+                    </tr>
+                    <tr>
+                        <td>11:45</td>
+                        <td>Accès non autorisé détecté</td>
+                        <td><span class="severity-badge severity-high">Haute</span></td>
+                        <td>Ressource: /admin/config</td>
+                        <td>⚠️ En cours</td>
+                    </tr>
+                    <tr>
+                        <td>08:20</td>
+                        <td>Configuration SSL modifiée</td>
+                        <td><span class="severity-badge severity-medium">Moyenne</span></td>
+                        <td>Certificat renouvelé</td>
+                        <td>✅ Vérifié</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="pane-details_db" class="main-content section-pane" data-pane="details_db">
+        <h1 class="page-title">💾 Détails Base de Données</h1>
+        <div class="content-section">
+            <h2 class="section-title">Informations Générales</h2>
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-label">Taille Totale</div>
+                    <div class="info-value">2.4 GB</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Tables Actives</div>
+                    <div class="info-value">47</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Enregistrements</div>
+                    <div class="info-value">5.2M</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Dernière Sauvegarde</div>
+                    <div class="info-value">Il y a 2h</div>
+                </div>
+            </div>
+        </div>
+        <div class="content-section">
+            <h2 class="section-title">Instances</h2>
+            <table class="db-table">
+                <thead><tr><th>Instance</th><th>Type</th><th>Statut</th><th>Version</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>db-prod-01</strong></td><td>PostgreSQL</td><td><span class="status-badge-online">En ligne</span></td><td>14.5</td></tr>
+                    <tr><td><strong>db-backup</strong></td><td>PostgreSQL</td><td><span class="status-badge-online">En ligne</span></td><td>14.5</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="pane-configuration" class="main-content section-pane" data-pane="configuration">
+        <h1 class="page-title">⚙️ Configuration Système</h1>
+        <div class="alert-info">
+            ℹ️ Les modifications ici sont simulées (démo)
+        </div>
+        <div class="content-section">
+            <h2 class="section-title">Paramètres Généraux</h2>
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Mode Debug</div>
+                    <div class="config-value">Production</div>
+                </div>
+                <div class="toggle-switch" role="switch" tabindex="0" aria-label="Mode debug"></div>
+            </div>
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Alertes Email</div>
+                    <div class="config-value">Notifications critiques</div>
+                </div>
+                <div class="toggle-switch on" role="switch" tabindex="0" aria-checked="true" aria-label="Alertes email"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pane-rapport" class="main-content section-pane" data-pane="rapport">
+        <h1 class="page-title">📋 Rapports</h1>
+        <div class="content-section">
+            <h2 class="section-title">Générer un rapport</h2>
+            <div class="filter-section">
+                <select aria-label="Type de rapport">
+                    <option>Type: Anomalies</option>
+                    <option>Performance</option>
+                    <option>Sécurité</option>
+                </select>
+                <select aria-label="Période">
+                    <option>Période: 7 derniers jours</option>
+                </select>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-generate-demo">📥 Générer (démo)</button>
+        </div>
+        <div class="content-section">
+            <h2 class="section-title">Rapports disponibles</h2>
+            <div class="report-card">
+                <div>
+                    <h3 style="color: #333; margin-bottom: 5px;">Rapport Anomalies</h3>
+                    <p style="color: #999; font-size: 14px;">PDF — prêt au téléchargement</p>
+                </div>
+                <div class="report-actions">
+                    <a href="{{ url_for('export_pdf_rapport') }}" class="btn btn-primary btn-sm">📥 PDF</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = {
+            kpis: '{{ url_for("get_kpis") }}',
+            performance: '{{ url_for("get_performance") }}',
+            anomalies: '{{ url_for("get_anomalies") }}',
+            timeline: '{{ url_for("get_timeline") }}'
+        };
+        const EXPORT_PDF_URL = '{{ url_for("export_pdf_rapport") }}';
+        const BOOT_TAB = {{ (initial_tab or '') | tojson }};
+        const SECTION_IDS = ['dashboard', 'performance', 'security', 'details_db', 'configuration', 'rapport'];
+        const BASE_TITLE = 'TT Analytics - Tunisie Télécom';
+
+        let timelineChart = null;
+        let perfChartInstance = null;
+        let perfChartReady = false;
+
+        function normalizeSection(raw) {
+            const key = String(raw || 'dashboard').replace(/^#/, '');
+            return SECTION_IDS.includes(key) ? key : 'dashboard';
+        }
+
+        function setActiveSidebar(sectionId) {
+            document.querySelectorAll('#sidebar-menu li').forEach((li, i) => {
+                const a = li.querySelector('a');
+                const sid = a && (a.dataset.section || normalizeSection(a.getAttribute('href')));
+                li.classList.toggle('active', sid === sectionId);
+            });
+        }
+
+        function showSection(sectionId) {
+            sectionId = normalizeSection(sectionId);
+            SECTION_IDS.forEach(id => {
+                const el = document.getElementById('pane-' + id);
+                if (el) el.classList.toggle('active', id === sectionId);
+            });
+            setActiveSidebar(sectionId);
+
+            const titles = {
+                dashboard: 'Dashboard',
+                performance: 'Performance',
+                security: 'Sécurité',
+                details_db: 'Base de données',
+                configuration: 'Configuration',
+                rapport: 'Rapports'
+            };
+            document.title = (titles[sectionId] || 'TT Analytics') + ' — ' + BASE_TITLE;
+
+            if (sectionId === 'performance') initPerfChartOnce();
+        }
+
+        async function loadData() {
+            try {
+                const kpisRes = await fetch(API.kpis);
+                const kpis = await kpisRes.json();
+                document.getElementById('total-anomalies').textContent = kpis.total_anomalies;
+                document.getElementById('critiques').textContent = kpis.critiques;
+                document.getElementById('uptime').textContent = kpis.uptime;
+                document.getElementById('errors-24h').textContent = kpis.errors_24h;
+
+                const perfRes = await fetch(API.performance);
+                const perf = await perfRes.json();
+                document.getElementById('cpu-bar').style.width = perf.cpu + '%';
+                document.getElementById('cpu-value').textContent = perf.cpu + '%';
+                document.getElementById('memory-bar').style.width = perf.memory + '%';
+                document.getElementById('memory-value').textContent = perf.memory + '%';
+                document.getElementById('disk-bar').style.width = perf.disk + '%';
+                document.getElementById('disk-value').textContent = perf.disk + '%';
+
+                const anomRes = await fetch(API.anomalies);
+                const anomalies = await anomRes.json();
+                displayAnomalies(anomalies);
+
+                const timelineRes = await fetch(API.timeline);
+                const timeline = await timelineRes.json();
+                displayTimeline(timeline);
+            } catch (e) {
+                console.error('Erreur chargement dashboard:', e);
+            }
+        }
+
+        function displayAnomalies(anomalies) {
+            let html = '<table class="anomalies-table"><thead><tr>';
+            html += '<th>Heure</th><th>Type</th><th>Sévérité</th><th>Impact</th><th>Nombre</th></tr></thead><tbody>';
+            anomalies.forEach(anom => {
+                const severityClass = 'severity-' + String(anom.severity).toLowerCase();
+                html += '<tr><td><strong>' + anom.time + '</strong></td><td>' + anom.type + '</td>';
+                html += '<td><span class="severity-badge ' + severityClass + '">' + anom.severity + '</span></td>';
+                html += '<td>' + anom.impact + '</td><td><strong>' + anom.count + '</strong></td></tr>';
+            });
+            html += '</tbody></table>';
+            document.getElementById('anomalies-container').innerHTML = html;
+        }
+
+        function displayTimeline(timeline) {
+            const labels = timeline.map(d => d.time);
+            const scores = timeline.map(d => d.score);
+            const errors = timeline.map(d => d.errors);
+            const ctx = document.getElementById('timeline-chart').getContext('2d');
+            if (timelineChart) timelineChart.destroy();
+            timelineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Score Santé',
+                            data: scores,
+                            borderColor: '#0055A4',
+                            backgroundColor: 'rgba(0, 85, 164, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Erreurs',
+                            data: errors,
+                            borderColor: '#E74C3C',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top' } },
+                    scales: {
+                        y: { beginAtZero: true, max: 100 }
+                    }
+                }
+            });
+        }
+
+        function refreshData() {
+            loadData();
+        }
+
+        function scheduleDashboardLoad() {
+            window.requestAnimationFrame(() => loadData());
+        }
+
+        function initPerfChartOnce() {
+            if (perfChartReady || !window.Chart) return;
+            const canvas = document.getElementById('perf-chart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            perfChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+                    datasets: [{
+                        label: 'Temps de Réponse (ms)',
+                        data: [230, 245, 240, 235, 250, 225, 220],
+                        borderColor: '#0055A4',
+                        backgroundColor: 'rgba(0, 85, 164, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true } }
+                }
+            });
+            perfChartReady = true;
+        }
+
+        function wireNavigation() {
+            document.querySelectorAll('#sidebar-menu a[data-section]').forEach(a => {
+                a.addEventListener('click', (e) => {
+                    const id = a.dataset.section || normalizeSection(a.getAttribute('href'));
+                    if (!SECTION_IDS.includes(id)) return;
+                    e.preventDefault();
+                    if (location.hash !== '#' + id) location.hash = id;
+                    else showSection(id);
+                });
+            });
+            window.addEventListener('hashchange', () => showSection(normalizeSection(location.hash)));
+        }
+
+        document.getElementById('btn-pdf-dashboard').addEventListener('click', () => {
+            window.location.href = EXPORT_PDF_URL;
+        });
+        const genDemo = document.getElementById('btn-generate-demo');
+        if (genDemo) genDemo.addEventListener('click', () => { window.location.href = EXPORT_PDF_URL; });
+
+        document.querySelectorAll('.toggle-switch').forEach(sw => {
+            sw.addEventListener('click', () => {
+                sw.classList.toggle('on');
+                const on = sw.classList.contains('on');
+                sw.setAttribute('aria-checked', on ? 'true' : 'false');
+            });
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            wireNavigation();
+            const initial = location.hash
+                ? normalizeSection(location.hash)
+                : normalizeSection(BOOT_TAB || 'dashboard');
+            if (!location.hash) {
+                history.replaceState(null, '', '#' + initial);
+            }
+            showSection(initial);
+            scheduleDashboardLoad();
+        });
+    </script>
+</body>
+</html>

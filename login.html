@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Tunisie Télécom Analytics</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0055A4 0%, #003a73 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 85, 164, 0.3);
+            width: 100%;
+            max-width: 420px;
+            padding: 40px;
+        }
+
+        .logo-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 36px;
+            font-weight: bold;
+            color: #0055A4;
+            margin-bottom: 10px;
+        }
+
+        .logo-subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #0055A4;
+            box-shadow: 0 0 0 3px rgba(0, 85, 164, 0.1);
+        }
+
+        .error-message {
+            background: #fee;
+            border-left: 4px solid #E74C3C;
+            color: #c33;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #0055A4;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #003a73;
+        }
+
+        .toggle-mode {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .toggle-mode a {
+            color: #0055A4;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .toggle-mode a:hover {
+            text-decoration: underline;
+        }
+
+        .demo-credentials {
+            background: #f0f8ff;
+            border-left: 4px solid #FFD200;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .demo-credentials strong {
+            color: #0055A4;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .password-toggle {
+            position: relative;
+        }
+
+        .password-toggle input {
+            padding-right: 40px;
+        }
+
+        .password-toggle-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #0055A4;
+            font-size: 12px;
+            background: none;
+            border: none;
+            padding: 0;
+            width: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo-section">
+            <div class="logo">📊 TT Analytics</div>
+            <div class="logo-subtitle">Tunisie Télécom - Dashboard d'Anomalies</div>
+        </div>
+
+        <p class="demo-credentials" style="margin-bottom: 16px;">
+            <strong>Ouverture locale :</strong> pour une session complète, lancez <code style="background:#eee;padding:2px 6px;border-radius:4px;">python app.py</code> puis utilisez <a href="http://127.0.0.1:5000/login" style="color:#0055A4;">http://127.0.0.1:5000/login</a>.
+        </p>
+
+        <!-- Formulaire de Connexion -->
+        <form id="login-form" method="POST" action="http://127.0.0.1:5000/login">
+            <h2 style="margin-bottom: 25px; color: #333; font-size: 24px;">Connexion</h2>
+
+            <div class="form-group">
+                <label for="username-login">Nom d'utilisateur</label>
+                <input type="text" id="username-login" name="username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password-login">Mot de passe</label>
+                <div class="password-toggle">
+                    <input type="password" id="password-login" name="password" required>
+                    <button type="button" class="password-toggle-btn" onclick="togglePassword('password-login')">👁️</button>
+                </div>
+            </div>
+
+            <button type="submit">Se connecter</button>
+
+            <div class="toggle-mode">
+                Pas encore inscrit ? 
+                <a onclick="toggleForms()">Créer un compte</a>
+            </div>
+
+            <div class="demo-credentials">
+                <strong>📝 Identifiants de test :</strong><br>
+                User: <strong>demo</strong> | Pass: <strong>demo123</strong><br>
+                Admin: <strong>admin</strong> | Pass: <strong>admin123</strong>
+            </div>
+        </form>
+
+        <!-- Formulaire d'Inscription -->
+        <form id="register-form" method="POST" action="http://127.0.0.1:5000/register" class="hidden">
+            <h2 style="margin-bottom: 25px; color: #333; font-size: 24px;">Inscription</h2>
+
+            <div class="form-group">
+                <label for="username-reg">Nom d'utilisateur</label>
+                <input type="text" id="username-reg" name="username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email-reg">E-mail</label>
+                <input type="email" id="email-reg" name="email" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password-reg">Mot de passe</label>
+                <div class="password-toggle">
+                    <input type="password" id="password-reg" name="password" required>
+                    <button type="button" class="password-toggle-btn" onclick="togglePassword('password-reg')">👁️</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password-confirm">Confirmer le mot de passe</label>
+                <div class="password-toggle">
+                    <input type="password" id="password-confirm" name="password_confirm" required>
+                    <button type="button" class="password-toggle-btn" onclick="togglePassword('password-confirm')">👁️</button>
+                </div>
+            </div>
+
+            <button type="submit">S'inscrire</button>
+
+            <div class="toggle-mode">
+                Déjà inscrit ? 
+                <a onclick="toggleForms()">Se connecter</a>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function toggleForms() {
+            document.getElementById('login-form').classList.toggle('hidden');
+            document.getElementById('register-form').classList.toggle('hidden');
+        }
+
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            field.type = field.type === 'password' ? 'text' : 'password';
+        }
+    </script>
+</body>
+</html>

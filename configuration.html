@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration - Tunisie Télécom Analytics</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #0055A4 0%, #003a73 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .navbar-brand {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .logout-btn {
+            background: #FFD200;
+            color: #0055A4;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: white;
+            height: calc(100vh - 80px);
+            position: fixed;
+            left: 0;
+            top: 80px;
+            border-right: 1px solid #e0e0e0;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 20px 0;
+        }
+
+        .sidebar-menu li a {
+            display: block;
+            padding: 15px 20px;
+            color: #666;
+            text-decoration: none;
+        }
+
+        .sidebar-menu li.active a {
+            color: #0055A4;
+            font-weight: 600;
+            border-left: 4px solid #FFD200;
+            background: #f9f9f9;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            margin-top: 80px;
+            padding: 40px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 30px;
+        }
+
+        .content-section {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #FFD200;
+        }
+
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .config-item:last-child {
+            border-bottom: none;
+        }
+
+        .config-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .config-value {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: #ccc;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.on {
+            background: #27AE60;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: left 0.3s;
+        }
+
+        .toggle-switch.on::after {
+            left: 28px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #0055A4;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #003a73;
+        }
+
+        .back-link {
+            color: #0055A4;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            border-left: 4px solid #0c5460;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-brand">📊 TT Analytics Dashboard</div>
+        <form method="POST" action="#" style="margin: 0;" onsubmit="return false;">
+            <button type="button" class="logout-btn" onclick="location.href='login.html'">Déconnexion</button>
+        </form>
+    </div>
+
+    <div class="sidebar">
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html">🏠 Dashboard</a></li>
+            <li><a href="performance.html">⚡ Performance</a></li>
+            <li><a href="security.html">🔒 Sécurité</a></li>
+            <li><a href="details_db.html">💾 Base de Données</a></li>
+<li class="active"><a href="configuration.html">⚙️ Configuration</a></li>
+            <li><a href="rapport.html">📋 Rapports</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <a href="dashboard.html" class="back-link">← Retour au Dashboard</a>
+        
+        <h1 class="page-title">⚙️ Configuration Système</h1>
+
+        <div class="alert-info">
+            ℹ️ Les modifications apportées ici affecteront le comportement de l'application
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">Paramètres Généraux</h2>
+            
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Mode Debug</div>
+                    <div class="config-value">Désactivé en production</div>
+                </div>
+                <div class="toggle-switch"></div>
+            </div>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Alertes Email</div>
+                    <div class="config-value">Notifications critiques</div>
+                </div>
+                <div class="toggle-switch on"></div>
+            </div>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Audit Logging</div>
+                    <div class="config-value">Tous les accès enregistrés</div>
+                </div>
+                <div class="toggle-switch on"></div>
+            </div>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Compression des Données</div>
+                    <div class="config-value">GZIP activé</div>
+                </div>
+                <div class="toggle-switch on"></div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">Performance & Cache</h2>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Cache Redis</div>
+                    <div class="config-value">Connecté - 8.2 GB utilisés</div>
+                </div>
+                <div class="toggle-switch on"></div>
+            </div>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Connection Pooling</div>
+                    <div class="config-value">Max 100 connexions</div>
+                </div>
+                <div class="toggle-switch on"></div>
+            </div>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">CDN Global</div>
+                    <div class="config-value">Cloudflare - 5 régions</div>
+                </div>
+                <div class="toggle-switch on"></div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">Sauvegardes & Récupération</h2>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Sauvegardes Automatiques</div>
+                    <div class="config-value">Quotidiennes à 02:00</div>
+                </div>
+                <button class="btn btn-primary">Effectuer maintenant</button>
+            </div>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Rétention des Sauvegardes</div>
+                    <div class="config-value">30 jours</div>
+                </div>
+                <button class="btn btn-primary">Configurer</button>
+            </div>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Réplication</div>
+                    <div class="config-value">Synchronisée avec 2 serveurs de secours</div>
+                </div>
+                <button class="btn btn-primary">Tester</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

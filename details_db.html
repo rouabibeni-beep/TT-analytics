@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Base de Données - Tunisie Télécom Analytics</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #0055A4 0%, #003a73 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .navbar-brand {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .logout-btn {
+            background: #FFD200;
+            color: #0055A4;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: white;
+            height: calc(100vh - 80px);
+            position: fixed;
+            left: 0;
+            top: 80px;
+            border-right: 1px solid #e0e0e0;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 20px 0;
+        }
+
+        .sidebar-menu li a {
+            display: block;
+            padding: 15px 20px;
+            color: #666;
+            text-decoration: none;
+        }
+
+        .sidebar-menu li.active a {
+            color: #0055A4;
+            font-weight: 600;
+            border-left: 4px solid #FFD200;
+            background: #f9f9f9;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            margin-top: 80px;
+            padding: 40px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 30px;
+        }
+
+        .content-section {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #FFD200;
+        }
+
+        .db-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .db-table th, .db-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .db-table th {
+            background: #f9f9f9;
+            font-weight: 600;
+        }
+
+        .db-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-online {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .back-link {
+            color: #0055A4;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .info-card {
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            border-left: 4px solid #0055A4;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+        }
+
+        .info-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0055A4;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-brand">📊 TT Analytics Dashboard</div>
+        <form method="POST" action="#" style="margin: 0;" onsubmit="return false;">
+            <button type="button" class="logout-btn" onclick="location.href='login.html'">Déconnexion</button>
+        </form>
+    </div>
+
+    <div class="sidebar">
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html">🏠 Dashboard</a></li>
+            <li><a href="performance.html">⚡ Performance</a></li>
+            <li><a href="security.html">🔒 Sécurité</a></li>
+<li class="active"><a href="details_db.html">💾 Base de Données</a></li>
+            <li><a href="configuration.html">⚙️ Configuration</a></li>
+            <li><a href="rapport.html">📋 Rapports</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <a href="dashboard.html" class="back-link">← Retour au Dashboard</a>
+        
+        <h1 class="page-title">💾 Détails Base de Données</h1>
+
+        <div class="content-section">
+            <h2 class="section-title">Informations Générales</h2>
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-label">Taille Totale</div>
+                    <div class="info-value">2.4 GB</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Tables Actives</div>
+                    <div class="info-value">47</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Enregistrements</div>
+                    <div class="info-value">5.2M</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Dernière Sauvegarde</div>
+                    <div class="info-value">Il y a 2h</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">Instances de Base de Données</h2>
+            <table class="db-table">
+                <thead>
+                    <tr>
+                        <th>Instance</th>
+                        <th>Type</th>
+                        <th>Statut</th>
+                        <th>Version</th>
+                        <th>CPU</th>
+                        <th>Mémoire</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>db-prod-01</strong></td>
+                        <td>PostgreSQL</td>
+                        <td><span class="status-badge status-online">En ligne</span></td>
+                        <td>14.5</td>
+                        <td>8 cores</td>
+                        <td>32 GB</td>
+                    </tr>
+                    <tr>
+                        <td><strong>db-prod-02</strong></td>
+                        <td>PostgreSQL</td>
+                        <td><span class="status-badge status-online">En ligne</span></td>
+                        <td>14.5</td>
+                        <td>8 cores</td>
+                        <td>32 GB</td>
+                    </tr>
+                    <tr>
+                        <td><strong>db-backup</strong></td>
+                        <td>PostgreSQL</td>
+                        <td><span class="status-badge status-online">En ligne</span></td>
+                        <td>14.5</td>
+                        <td>4 cores</td>
+                        <td>16 GB</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">Requêtes Lentes Identifiées</h2>
+            <table class="db-table">
+                <thead>
+                    <tr>
+                        <th>Requête</th>
+                        <th>Temps (ms)</th>
+                        <th>Exécutions</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>SELECT * FROM users WHERE status='active'</code></td>
+                        <td>1250</td>
+                        <td>450</td>
+                        <td>⚠️ À optimiser</td>
+                    </tr>
+                    <tr>
+                        <td><code>JOIN anomalies ON logs.id = anomalies.log_id</code></td>
+                        <td>890</td>
+                        <td>320</td>
+                        <td>💡 Index recommandé</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

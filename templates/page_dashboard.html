@@ -1,0 +1,800 @@
+{% extends "base.html" %}
+{% set active_page = 'dashboard' %}
+{% block title %}Dashboard interactif{% endblock %}
+
+{% block extra_head %}
+<style>
+    .dash-toolbar {
+        display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+        background: white; padding: 16px 20px; border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 24px;
+    }
+    .live-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #27AE60; }
+    .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #27AE60; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+    .filter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+        padding: 8px 14px; border-radius: 20px; border: 2px solid #e0e0e0;
+        background: white; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .chip.active { background: #0055A4; color: white; border-color: #0055A4; }
+    .chip.critique.active { background: #E74C3C; border-color: #E74C3C; }
+    .chip.anormal.active { background: #F39C12; border-color: #F39C12; color: #fff; }
+    .chip.suspect.active { background: #3498DB; border-color: #3498DB; color: #fff; }
+    .toolbar-select, .toolbar-search { padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; }
+    .toolbar-search { min-width: 180px; }
+    .kpi-card { cursor: pointer; transition: transform 0.2s; }
+    .kpi-card:hover { transform: translateY(-2px); }
+    .layout-with-panel { display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start; }
+    @media (max-width: 1100px) { .layout-with-panel { grid-template-columns: 1fr; } }
+    .detail-panel {
+        background: white; border-radius: 10px; padding: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-top: 4px solid #0055A4;
+        position: sticky; top: 88px;
+    }
+    .detail-panel.empty { border-top-color: #ccc; color: #999; text-align: center; padding: 36px 16px; }
+    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .data-table tbody tr { cursor: pointer; }
+    .data-table tbody tr.row-selected { background: #e8f4fc !important; }
+    .data-table th.sortable { cursor: pointer; }
+    .error-banner {
+        display: none; background: #fde8e8; border-left: 4px solid #E74C3C;
+        color: #721c24; padding: 14px 18px; border-radius: 6px; margin-bottom: 20px;
+    }
+    .error-banner.visible { display: block; }
+    /* ——— Heatmap grille claire ——— */
+    .heatmap-panel { margin-top: 8px; }
+    .heatmap-legend {
+        display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+        margin-bottom: 14px; font-size: 12px; color: #555;
+    }
+    .heatmap-legend-item { display: flex; align-items: center; gap: 6px; }
+    .heatmap-legend-swatch { width: 22px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); }
+    .heatmap-scroll { overflow-x: auto; padding-bottom: 8px; }
+    .heatmap-grid {
+        display: grid;
+        grid-template-columns: 42px repeat(12, minmax(28px, 1fr));
+        gap: 3px;
+        min-width: 520px;
+    }
+    .heatmap-corner { font-size: 10px; color: #999; }
+    .heatmap-slot-head {
+        font-size: 10px; color: #666; text-align: center; font-weight: 600;
+        padding: 4px 0;
+    }
+    .heatmap-hour-label {
+        font-size: 11px; font-weight: 700; color: #0055A4;
+        display: flex; align-items: center; justify-content: flex-end;
+        padding-right: 8px;
+    }
+    .heatmap-cell {
+        aspect-ratio: 1; min-height: 26px; border-radius: 4px;
+        cursor: pointer; border: 1px solid rgba(0,0,0,0.08);
+        transition: transform 0.15s, box-shadow 0.15s;
+        position: relative;
+    }
+    .heatmap-cell:hover {
+        transform: scale(1.15); z-index: 2;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+    .heatmap-cell.selected { outline: 3px solid #0055A4; outline-offset: 1px; }
+    .heatmap-footnote { font-size: 11px; color: #888; margin-top: 10px; line-height: 1.5; }
+    .charts-row-duo { align-items: stretch; }
+    .chart-container-anomaly-detail { position: relative; height: 320px; min-height: 280px; }
+    .chart-container-hourly { position: relative; height: 520px; margin-top: 8px; }
+    .hourly-thresholds {
+        display: flex; flex-wrap: wrap; gap: 12px 18px; font-size: 12px; color: #555; margin-bottom: 8px;
+    }
+    .hourly-thresholds span { display: flex; align-items: center; gap: 6px; }
+    .hourly-thresholds i {
+        display: inline-block; width: 14px; height: 14px; border-radius: 3px;
+        font-style: normal; border: 1px solid rgba(0,0,0,0.08);
+    }
+    .hourly-summary {
+        margin-top: 14px; padding: 14px 16px; background: #f8fafc;
+        border-radius: 8px; border-left: 4px solid #0055A4; font-size: 13px; line-height: 1.7; color: #444;
+    }
+    .hourly-summary strong { color: #0055A4; }
+    .hourly-summary .risk-pill {
+        display: inline-block; padding: 2px 8px; border-radius: 4px;
+        font-size: 11px; font-weight: 700; margin-left: 4px;
+    }
+    .heatmap-tooltip {
+        position: fixed; z-index: 9999; pointer-events: none;
+        background: #1a1a2e; color: #fff; padding: 10px 14px;
+        border-radius: 8px; font-size: 12px; line-height: 1.5;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.3); display: none; max-width: 220px;
+    }
+    .btn-outline {
+        background: white; border: 2px solid #0055A4; color: #0055A4;
+        padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="error-banner" class="error-banner" role="alert"></div>
+
+<div class="page-header" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+        <h1 class="page-title">🏠 Dashboard interactif</h1>
+        <p class="page-subtitle">KPIs, timeline et heatmap 24h × 5 min. Cliquez une cellule colorée pour le détail.</p>
+    </div>
+    <div class="live-badge">
+        <span class="live-dot"></span>
+        <span>Mis à jour : <strong id="last-update">{{ boot.updated_at }}</strong></span>
+    </div>
+</div>
+
+<div class="dash-toolbar">
+    <div class="filter-chips" id="severity-chips">
+        <button type="button" class="chip active" data-severity="ALL">Tous</button>
+        <button type="button" class="chip critique" data-severity="CRITIQUE">🔴 Critique</button>
+        <button type="button" class="chip anormal" data-severity="ANORMAL">🟠 Anormal</button>
+        <button type="button" class="chip suspect" data-severity="SUSPECT">🟡 Suspect</button>
+        <button type="button" class="chip" data-severity="NORMAL">🟢 Normal</button>
+    </div>
+    <select class="toolbar-select" id="filter-period" aria-label="Période">
+        <option value="">Journée complète</option>
+        <option value="0-5">Nuit 00h–05h</option>
+        <option value="6-11">Matin 06h–11h</option>
+        <option value="12-17">Après-midi 12h–17h</option>
+        <option value="18-23">Soir 18h–23h</option>
+    </select>
+    <input type="search" class="toolbar-search" id="search-anom" placeholder="Rechercher…" />
+    <label style="font-size:13px;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="auto-refresh" checked /> Auto 30s
+    </label>
+    <button type="button" class="btn btn-primary" id="btn-refresh">🔄 Actualiser</button>
+    <a href="{{ url_for('export_pdf_rapport') }}" class="btn btn-secondary">📥 PDF</a>
+</div>
+
+<div class="kpi-grid">
+    <div class="kpi-card" data-filter="ALL"><div class="kpi-label">Fenêtres</div><div class="kpi-value" id="kpi-fenetres">{{ boot.kpis.fenetres_total }}</div></div>
+    <div class="kpi-card critical" data-filter="CRITIQUE"><div class="kpi-label">Critiques</div><div class="kpi-value" id="kpi-critiques" style="color:#E74C3C">{{ boot.kpis.critiques }}</div></div>
+    <div class="kpi-card warning" data-filter="ANORMAL"><div class="kpi-label">Anormales</div><div class="kpi-value" id="kpi-anormales" style="color:#F39C12">{{ boot.kpis.anormales }}</div></div>
+    <div class="kpi-card success"><div class="kpi-label">% Normal</div><div class="kpi-value" id="kpi-pct-normal">{{ boot.kpis.pct_normal }}%</div></div>
+    <div class="kpi-card"><div class="kpi-label">Erreurs 24h</div><div class="kpi-value" id="kpi-erreurs">{{ boot.kpis.erreurs_total }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Uptime</div><div class="kpi-value" id="kpi-uptime">{{ boot.kpis.uptime }}</div></div>
+</div>
+
+<div class="layout-with-panel">
+    <div>
+        <div class="content-section">
+            <h2 class="section-title">📈 Timeline des scores (24h)</h2>
+            <div class="chart-legend-box">Bleu = score d'anomalie · Rouge = erreurs · Clic sur un point = détail</div>
+            <div class="chart-container" style="height:380px"><canvas id="chart-timeline"></canvas></div>
+            <p class="chart-hint" id="timeline-hint" style="font-size:12px;color:#888;margin-top:8px">—</p>
+        </div>
+
+        <div class="charts-row charts-row-duo">
+            <div class="content-section" style="margin-bottom:0">
+                <h2 class="section-title">🍩 Répartition par sévérité</h2>
+                <div class="chart-legend-box" style="margin-bottom:10px;font-size:12px">
+                    Part des <strong>288 fenêtres</strong> (5 min) : combien sont normales vs problématiques.
+                    <strong>Clic</strong> sur un segment = filtre.
+                </div>
+                <div class="chart-container-sm"><canvas id="chart-distribution"></canvas></div>
+            </div>
+            <div class="content-section" style="margin-bottom:0">
+                <h2 class="section-title">🔍 Détail par type d'anomalie</h2>
+                <div class="chart-legend-box" style="margin-bottom:10px;font-size:12px">
+                    Chaque barre = un <strong>type précis</strong> détecté (stack trace, pool, sécurité…).
+                    Longueur = volume d'<strong>erreurs</strong>. Couleur = sévérité max. <strong>Clic</strong> = détail.
+                </div>
+                <div class="chart-container-anomaly-detail"><canvas id="chart-anomaly-detail"></canvas></div>
+            </div>
+        </div>
+
+        <div class="content-section">
+                <h2 class="section-title">📊 Score moyen par heure</h2>
+                <div class="chart-legend-box" style="margin-bottom:12px">
+                    <strong>Lecture :</strong> hauteur de la barre = score moyen sur les 12 fenêtres de 5 min de l'heure (0 = calme, 100 = critique).
+                    Couleur = niveau de risque. Le chiffre au-dessus = score exact.
+                </div>
+                <div class="hourly-thresholds">
+                    <span><i style="background:#27AE60"></i> Normal &lt; 45</span>
+                    <span><i style="background:#3498DB"></i> Suspect 45–64</span>
+                    <span><i style="background:#F39C12"></i> Anormal 65–79</span>
+                    <span><i style="background:#E74C3C"></i> Critique ≥ 80</span>
+                </div>
+                <div class="chart-container-hourly"><canvas id="chart-hourly-bar"></canvas></div>
+                <div id="hourly-summary" class="hourly-summary"></div>
+        </div>
+
+        <div class="content-section heatmap-panel">
+            <h2 class="section-title">🔥 Heatmap horaire — intensité des anomalies</h2>
+            <div class="chart-legend-box">
+                <strong>Comment lire :</strong> chaque case = 5 minutes. Couleur = niveau de risque.
+                Survolez pour voir l'heure exacte et le score. <strong>Clic</strong> = détail dans le panneau à droite.
+            </div>
+            <div class="heatmap-legend">
+                <span class="heatmap-legend-item"><span class="heatmap-legend-swatch" style="background:#27AE60"></span> Normal (0–44)</span>
+                <span class="heatmap-legend-item"><span class="heatmap-legend-swatch" style="background:#3498DB"></span> Suspect (45–64)</span>
+                <span class="heatmap-legend-item"><span class="heatmap-legend-swatch" style="background:#F39C12"></span> Anormal (65–79)</span>
+                <span class="heatmap-legend-item"><span class="heatmap-legend-swatch" style="background:#E74C3C"></span> Critique (80–100)</span>
+            </div>
+            <div class="heatmap-scroll">
+                <div class="heatmap-grid" id="heatmap-grid"></div>
+            </div>
+            <p class="heatmap-footnote">Axe horizontal : minute dans l'heure (0, 5, 10… 55) · Axe vertical : heure de la journée · Les zones rouges/orange = priorité d'investigation</p>
+        </div>
+
+        <div class="content-section">
+            <h2 class="section-title">🚨 Top anomalies</h2>
+            <div id="anomalies-wrap"></div>
+        </div>
+    </div>
+
+    <aside class="detail-panel empty" id="detail-panel">
+        <h3>📌 Détail</h3>
+        <p>Cliquez une case de la heatmap, un point du graphique ou une ligne du tableau.</p>
+    </aside>
+</div>
+
+<div id="heatmap-tooltip" class="heatmap-tooltip"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const BUNDLE_URL = {{ url_for('get_dashboard_bundle') | tojson }};
+const BOOT = {{ boot | tojson }};
+
+let state = { severity: 'ALL', period: '', search: '', sortKey: 'time', sortDir: 1 };
+let charts = {};
+let refreshTimer = null;
+
+function runWhenReady(fn) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fn);
+    } else {
+        fn();
+    }
+}
+
+function showError(msg) {
+    const el = document.getElementById('error-banner');
+    el.textContent = msg;
+    el.classList.add('visible');
+}
+
+function hideError() {
+    document.getElementById('error-banner').classList.remove('visible');
+}
+
+function severityClass(s) {
+    return 'severity-' + String(s).toLowerCase();
+}
+
+function scoreColor(score) {
+    if (score >= 80) return '#E74C3C';
+    if (score >= 65) return '#F39C12';
+    if (score >= 45) return '#3498DB';
+    return '#27AE60';
+}
+
+function scoreLabel(score) {
+    if (score >= 80) return 'CRITIQUE';
+    if (score >= 65) return 'ANORMAL';
+    if (score >= 45) return 'SUSPECT';
+    return 'NORMAL';
+}
+
+function buildQuery() {
+    const p = new URLSearchParams();
+    if (state.severity !== 'ALL') p.set('severity', state.severity);
+    if (state.search) p.set('q', state.search);
+    if (state.period) {
+        const parts = state.period.split('-');
+        p.set('hour_from', parts[0]);
+        p.set('hour_to', parts[1]);
+    }
+    return p.toString();
+}
+
+async function fetchBundle() {
+    const qs = buildQuery();
+    const url = qs ? BUNDLE_URL + '?' + qs : BUNDLE_URL;
+    const res = await fetch(url, { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('API ' + res.status + ' — reconnectez-vous si nécessaire.');
+    return res.json();
+}
+
+function sampleTimeline(data, maxPoints) {
+    if (data.length <= maxPoints) return data;
+    const step = Math.ceil(data.length / maxPoints);
+    return data.filter((_, i) => i % step === 0);
+}
+
+function updateKpis(k) {
+    document.getElementById('kpi-fenetres').textContent = k.fenetres_total;
+    document.getElementById('kpi-critiques').textContent = k.critiques;
+    document.getElementById('kpi-anormales').textContent = k.anormales;
+    document.getElementById('kpi-pct-normal').textContent = k.pct_normal + '%';
+    document.getElementById('kpi-erreurs').textContent = k.erreurs_total;
+    document.getElementById('kpi-uptime').textContent = k.uptime;
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString('fr-FR');
+}
+
+function showDetail(data) {
+    const panel = document.getElementById('detail-panel');
+    panel.classList.remove('empty');
+    const sev = data.severity || scoreLabel(data.score || 0);
+    panel.innerHTML = `
+        <h3>📌 ${data.time || '—'}</h3>
+        <div class="detail-row"><span>Score</span><strong style="color:${scoreColor(data.score || 0)}">${data.score != null ? data.score : '—'}</strong></div>
+        <div class="detail-row"><span>Sévérité</span><strong><span class="severity-badge ${severityClass(sev)}">${sev}</span></strong></div>
+        <div class="detail-row"><span>Erreurs</span><strong>${data.errors != null ? data.errors : (data.count || 0)}</strong></div>
+        ${data.type ? '<div class="detail-row"><span>Type</span><strong>' + data.type + '</strong></div>' : ''}
+        ${data.code ? '<div class="detail-row"><span>Code</span><strong><code>' + data.code + '</code></strong></div>' : ''}
+        ${data.action ? '<p style="margin-top:12px;font-size:13px;color:#555"><strong>Action :</strong> ' + data.action + '</p>' : ''}`;
+    document.getElementById('timeline-hint').textContent =
+        'Sélection : ' + (data.time || '') + ' — score ' + (data.score != null ? data.score : '—') + ' (' + sev + ')';
+}
+
+function renderTimeline(data) {
+    if (!window.Chart) return;
+    const canvas = document.getElementById('chart-timeline');
+    if (!canvas) return;
+    const sampled = sampleTimeline(data, 96);
+    const ctx = canvas.getContext('2d');
+    if (charts.timeline) charts.timeline.destroy();
+    charts.timeline = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: sampled.map(d => d.time),
+            datasets: [
+                {
+                    label: 'Score',
+                    data: sampled.map(d => d.score),
+                    borderColor: '#0055A4',
+                    backgroundColor: 'rgba(0,85,164,0.08)',
+                    pointBackgroundColor: sampled.map(d => scoreColor(d.score)),
+                    pointRadius: sampled.map(d => d.score >= 80 ? 5 : 2),
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Erreurs',
+                    data: sampled.map(d => d.errors),
+                    borderColor: '#E74C3C',
+                    backgroundColor: 'rgba(231,76,60,0.12)',
+                    tension: 0.25,
+                    fill: true,
+                    yAxisID: 'y1',
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            onClick: (_, els) => { if (els.length) showDetail(sampled[els[0].index]); },
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                y: { min: 0, max: 100, title: { display: true, text: 'Score' } },
+                y1: { position: 'right', min: 0, grid: { drawOnChartArea: false }, title: { display: true, text: 'Erreurs' } }
+            }
+        }
+    });
+}
+
+function renderDistribution(dist) {
+    if (!window.Chart) return;
+    const ctx = document.getElementById('chart-distribution').getContext('2d');
+    if (charts.dist) charts.dist.destroy();
+    charts.dist = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: dist.labels,
+            datasets: [{ data: dist.values, backgroundColor: ['#27AE60', '#3498DB', '#F39C12', '#E74C3C'], borderWidth: 2 }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (_, els) => { if (els.length) setSeverity(dist.labels[els[0].index]); },
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: { callbacks: { label: c => c.label + ': ' + c.raw + ' fenêtres (' + dist.percent[c.dataIndex] + '%)' } }
+            }
+        }
+    });
+}
+
+function severityBarColor(sev) {
+    const map = { CRITIQUE: '#E74C3C', ANORMAL: '#F39C12', SUSPECT: '#3498DB', NORMAL: '#27AE60' };
+    return map[sev] || '#95A5A6';
+}
+
+function renderAnomalyDetailChart(details, anoms) {
+    if (!window.Chart) return;
+    const canvas = document.getElementById('chart-anomaly-detail');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (charts.anomalyDetail) charts.anomalyDetail.destroy();
+
+    if (!details.labels || !details.labels.length) {
+        charts.anomalyDetail = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: ['Aucune anomalie'], datasets: [{ data: [0], backgroundColor: '#ecf0f1' }] },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+        });
+        return;
+    }
+
+    charts.anomalyDetail = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: details.labels,
+            datasets: [{
+                label: 'Nombre d\'erreurs',
+                data: details.errors,
+                backgroundColor: details.severities.map(severityBarColor),
+                borderColor: details.severities.map(s => severityBarColor(s) + '99'),
+                borderWidth: 1,
+                borderRadius: 4,
+                maxBarThickness: 22
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            layout: { padding: { right: 40 } },
+            onClick: (_, els) => {
+                if (!els.length || !anoms.length) return;
+                const typeName = details.labels[els[0].index];
+                const match = anoms.find(a => a.type === typeName) || anoms[0];
+                showDetail(match);
+                document.querySelectorAll('#anomalies-wrap tbody tr').forEach(tr => tr.classList.remove('row-selected'));
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1a1a2e',
+                    padding: 12,
+                    callbacks: {
+                        title: items => details.labels[items[0].dataIndex],
+                        label: ctx => 'Erreurs recensées : ' + details.errors[ctx.dataIndex],
+                        afterLabel: ctx => {
+                            const i = ctx.dataIndex;
+                            return [
+                                'Score moyen : ' + details.avg_scores[i] + ' / 100',
+                                'Sévérité max : ' + details.severities[i],
+                                'Code(s) : ' + (details.codes[i] || '—'),
+                                'Impact : ' + (details.impacts[i] || '—'),
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Volume d\'erreurs', font: { weight: 'bold' } },
+                    ticks: { stepSize: 1 }
+                },
+                y: {
+                    ticks: {
+                        font: { size: 11 },
+                        callback: function(value) {
+                            const lbl = this.getLabelForValue(value);
+                            return lbl.length > 28 ? lbl.slice(0, 26) + '…' : lbl;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+const hourlyBarLabelsPlugin = {
+    id: 'hourlyBarLabels',
+    afterDatasetsDraw(chart) {
+        const { ctx, data } = chart;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta.data.length) return;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 11px Segoe UI, sans-serif';
+        data.datasets[0].data.forEach((val, i) => {
+            if (val == null || val <= 0) return;
+            const bar = meta.data[i];
+            ctx.fillStyle = '#333';
+            ctx.fillText(Math.round(val * 10) / 10, bar.x, bar.y - 6);
+            ctx.font = '9px Segoe UI, sans-serif';
+            ctx.fillStyle = '#666';
+            const sev = (data.severities && data.severities[i]) || scoreLabel(val);
+            ctx.fillText(sev, bar.x, bar.y - 18);
+            ctx.font = 'bold 11px Segoe UI, sans-serif';
+        });
+        ctx.restore();
+    }
+};
+
+function renderHourlySummary(heat) {
+    const el = document.getElementById('hourly-summary');
+    if (!el || !heat.avg_scores) return;
+    const ranked = heat.hours.map((h, i) => ({
+        hour: h,
+        range: heat.hours_range[i],
+        avg: heat.avg_scores[i],
+        max: heat.max_scores[i],
+        sev: heat.severities[i],
+        crit: heat.critiques[i],
+        err: heat.erreurs[i],
+    })).filter(x => x.avg > 0).sort((a, b) => b.avg - a.avg);
+
+    const top = ranked.slice(0, 3);
+    const calm = [...ranked].sort((a, b) => a.avg - b.avg).slice(0, 2);
+
+    let html = '<strong>À retenir :</strong> ';
+    if (top.length) {
+        html += 'heures les plus chargées → ';
+        html += top.map(x =>
+            x.hour + ' (moy. <strong>' + x.avg + '</strong>, max ' + x.max
+            + ', <span class="severity-badge ' + severityClass(x.sev) + '">' + x.sev + '</span>'
+            + (x.crit ? ', ' + x.crit + ' fen. critiques' : '') + ')'
+        ).join(' · ');
+    } else {
+        html += 'aucune donnée sur la période filtrée.';
+    }
+    if (calm.length && calm[0].avg < 45) {
+        html += '<br><span style="color:#27AE60">✓ Périodes les plus calmes : '
+            + calm.map(x => x.hour + ' (moy. ' + x.avg + ')').join(', ') + '</span>';
+    }
+    html += '<br><em style="color:#888;font-size:12px">Clic sur une barre = filtrer le dashboard sur cette heure.</em>';
+    el.innerHTML = html;
+}
+
+function renderHourlyBar(heat) {
+    if (!window.Chart) return;
+    const canvas = document.getElementById('chart-hourly-bar');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (charts.bar) charts.bar.destroy();
+
+    charts.bar = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: heat.hours,
+            severities: heat.severities,
+            datasets: [{
+                label: 'Score moyen (0–100)',
+                data: heat.avg_scores,
+                backgroundColor: heat.avg_scores.map(scoreColor),
+                borderColor: heat.avg_scores.map(s => s >= 65 ? 'rgba(0,0,0,0.25)' : 'transparent'),
+                borderWidth: heat.avg_scores.map(s => s >= 65 ? 2 : 0),
+                borderRadius: 4,
+                maxBarThickness: 28
+            }]
+        },
+        plugins: [hourlyBarLabelsPlugin],
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            layout: { padding: { right: 28, left: 8 } },
+            onClick: (_, els) => {
+                if (!els.length) return;
+                const h = els[0].index;
+                state.period = h + '-' + h;
+                document.getElementById('filter-period').value = '';
+                loadDashboard();
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1a1a2e',
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    padding: 12,
+                    callbacks: {
+                        title: items => heat.hours_range[items[0].dataIndex],
+                        label: ctx => 'Score moyen : ' + heat.avg_scores[ctx.dataIndex] + ' / 100',
+                        afterLabel: ctx => {
+                            const i = ctx.dataIndex;
+                            const lines = [
+                                'Niveau : ' + (heat.severities[i] || scoreLabel(heat.avg_scores[i])),
+                                'Pic max sur l\'heure : ' + heat.max_scores[i],
+                                'Fenêtres analysées : ' + heat.fenetres[i] + ' (× 5 min)',
+                                'Fenêtres critiques : ' + heat.critiques[i],
+                                'Total erreurs : ' + heat.erreurs[i],
+                            ];
+                            return lines;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    min: 0,
+                    max: 100,
+                    title: { display: true, text: 'Score moyen d\'anomalie', font: { weight: 'bold' } },
+                    grid: {
+                        color: ctx => {
+                            const v = ctx.tick.value;
+                            if (v === 45 || v === 65 || v === 80) return 'rgba(0,0,0,0.12)';
+                            return 'rgba(0,0,0,0.05)';
+                        }
+                    },
+                    ticks: {
+                        callback: v => v + (v === 45 ? ' (suspect)' : v === 65 ? ' (anormal)' : v === 80 ? ' (critique)' : '')
+                    }
+                },
+                y: {
+                    title: { display: true, text: 'Heure de la journée', font: { weight: 'bold' } },
+                    ticks: { font: { size: 12, weight: '600' }, color: '#0055A4' }
+                }
+            }
+        }
+    });
+    renderHourlySummary(heat);
+}
+
+function renderHeatmapMatrix(matrixData) {
+    const grid = document.getElementById('heatmap-grid');
+    if (!grid || !matrixData || !matrixData.matrix) return;
+
+    let html = '<div class="heatmap-corner"></div>';
+    matrixData.slot_labels.forEach(lbl => {
+        html += '<div class="heatmap-slot-head">' + lbl + '</div>';
+    });
+
+    matrixData.matrix.forEach((row, hi) => {
+        html += '<div class="heatmap-hour-label">' + matrixData.hours[hi] + '</div>';
+        row.forEach(cell => {
+            const bg = scoreColor(cell.score);
+            html += '<div class="heatmap-cell" style="background:' + bg + '"'
+                + ' data-time="' + cell.time + '"'
+                + ' data-score="' + cell.score + '"'
+                + ' data-severity="' + cell.severity + '"'
+                + ' data-errors="' + cell.errors + '"'
+                + ' title="' + cell.time + ' — score ' + cell.score + '"></div>';
+        });
+    });
+    grid.innerHTML = html;
+
+    const tooltip = document.getElementById('heatmap-tooltip');
+    grid.querySelectorAll('.heatmap-cell').forEach(cell => {
+        cell.addEventListener('mouseenter', e => {
+            const t = cell.dataset.time;
+            const s = cell.dataset.score;
+            const sev = cell.dataset.severity;
+            const err = cell.dataset.errors;
+            tooltip.innerHTML = '<strong>' + t + '</strong><br>Score : <strong>' + s + '</strong><br>'
+                + 'Niveau : ' + sev + '<br>Erreurs : ' + err;
+            tooltip.style.display = 'block';
+        });
+        cell.addEventListener('mousemove', e => {
+            tooltip.style.left = (e.clientX + 14) + 'px';
+            tooltip.style.top = (e.clientY + 14) + 'px';
+        });
+        cell.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+        cell.addEventListener('click', () => {
+            grid.querySelectorAll('.heatmap-cell').forEach(c => c.classList.remove('selected'));
+            cell.classList.add('selected');
+            showDetail({
+                time: cell.dataset.time,
+                score: parseFloat(cell.dataset.score),
+                severity: cell.dataset.severity,
+                errors: parseInt(cell.dataset.errors, 10)
+            });
+        });
+    });
+}
+
+function renderAnomalies(anoms) {
+    const wrap = document.getElementById('anomalies-wrap');
+    if (!anoms.length) {
+        wrap.innerHTML = '<p style="color:#999;padding:16px">Aucune anomalie pour ce filtre.</p>';
+        return;
+    }
+    const sorted = [...anoms].sort((a, b) => {
+        if (state.sortKey === 'score') {
+            return ((a.score || 0) - (b.score || 0)) * state.sortDir;
+        }
+        return String(a[state.sortKey]).localeCompare(String(b[state.sortKey])) * state.sortDir;
+    });
+    let html = '<table class="data-table"><thead><tr>';
+    [['time','Heure'],['type','Type'],['code','Code'],['severity','Sévérité'],['score','Score'],['count','Erreurs']].forEach(([k,l]) => {
+        html += '<th class="sortable" data-sort="' + k + '">' + l + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    sorted.forEach(a => {
+        html += '<tr><td><strong>' + a.time + '</strong></td><td>' + a.type + '</td>';
+        html += '<td><code style="font-size:11px">' + (a.code || '—') + '</code></td>';
+        html += '<td><span class="severity-badge ' + severityClass(a.severity) + '">' + a.severity + '</span></td>';
+        html += '<td><strong>' + (a.score != null ? a.score.toFixed(1) : '—') + '</strong></td><td>' + a.count + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('tbody tr').forEach((tr, i) => {
+        tr.addEventListener('click', () => {
+            wrap.querySelectorAll('tr').forEach(r => r.classList.remove('row-selected'));
+            tr.classList.add('row-selected');
+            showDetail(sorted[i]);
+        });
+    });
+    wrap.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const k = th.dataset.sort;
+            if (state.sortKey === k) state.sortDir *= -1;
+            else { state.sortKey = k; state.sortDir = 1; }
+            renderAnomalies(anoms);
+        });
+    });
+}
+
+function applyBundle(bundle) {
+    hideError();
+    updateKpis(bundle.kpis);
+    renderTimeline(bundle.timeline);
+    renderDistribution(bundle.distribution);
+    renderAnomalyDetailChart(bundle.anomaly_details || { labels: [] }, bundle.anomalies || []);
+    renderHourlyBar(bundle.heatmap);
+    renderHeatmapMatrix(bundle.heatmap_matrix);
+    renderAnomalies(bundle.anomalies);
+}
+
+function setSeverity(sev) {
+    state.severity = sev;
+    document.querySelectorAll('#severity-chips .chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.severity === sev);
+    });
+    loadDashboard();
+}
+
+async function loadDashboard() {
+    try {
+        const bundle = await fetchBundle();
+        applyBundle(bundle);
+    } catch (e) {
+        console.error(e);
+        showError('Impossible de charger les données : ' + e.message + ' — Les valeurs initiales restent affichées.');
+    }
+}
+
+function setupAutoRefresh() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    const cb = document.getElementById('auto-refresh');
+    if (cb && cb.checked) refreshTimer = setInterval(loadDashboard, 30000);
+}
+
+function bindUi() {
+    document.getElementById('severity-chips').addEventListener('click', e => {
+        const chip = e.target.closest('.chip');
+        if (chip) setSeverity(chip.dataset.severity);
+    });
+    document.getElementById('filter-period').addEventListener('change', e => {
+        state.period = e.target.value;
+        loadDashboard();
+    });
+    document.getElementById('search-anom').addEventListener('input', e => {
+        state.search = e.target.value.trim();
+        clearTimeout(window._searchT);
+        window._searchT = setTimeout(loadDashboard, 400);
+    });
+    document.getElementById('auto-refresh').addEventListener('change', setupAutoRefresh);
+    document.getElementById('btn-refresh').addEventListener('click', loadDashboard);
+    document.querySelectorAll('.kpi-card[data-filter]').forEach(card => {
+        card.addEventListener('click', () => {
+            const f = card.dataset.filter;
+            setSeverity(f === 'ALL' ? 'ALL' : f);
+        });
+    });
+}
+
+runWhenReady(function() {
+    if (!window.Chart) {
+        showError('Chart.js non chargé — vérifiez votre connexion Internet.');
+        return;
+    }
+    bindUi();
+    applyBundle(BOOT);
+    setupAutoRefresh();
+});
+</script>
+{% endblock %}
