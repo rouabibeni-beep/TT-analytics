@@ -1652,7 +1652,7 @@ def init_db():
 if __name__ == '__main__':
     init_db()
     app.run(
-        debug=True,
+        debug=os.environ.get('FLASK_DEBUG') == '1',
         host='127.0.0.1',
         port=5000,
         use_reloader=True
